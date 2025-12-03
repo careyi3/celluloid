@@ -1,0 +1,15 @@
+[package]
+name = "wasm_animation_server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[dependencies]
+rocket = { workspace = true }
+tokio = { workspace = true }
+
+[build-dependencies]
+which = "7.0"
