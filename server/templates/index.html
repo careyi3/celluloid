@@ -3,10 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rust WASM Pathfinding Visualization</title>
+    <title>Rust WASM Animation Viewer</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <div class="controls">
+        <label for="animation-select">Select Animation:</label>
+        <select id="animation-select">
+            <option value="">Loading...</option>
+        </select>
+        <button id="refresh-btn">Refresh</button>
+    </div>
     <canvas id="canvas"></canvas>
     <script type="module" src="/static/js/app.js"></script>
 </body>

@@ -1,114 +1,189 @@
-# WASM Animation with Rocket Server
+# Rust WASM Animation System
 
-This project consists of two parts:
-1. **WASM Animation** - Rust pathfinding visualization compiled to WebAssembly
-2. **Rocket Server** - A Rust web server to serve the application
+A modular system for creating and viewing algorithm visualizations in the browser using Rust and WebAssembly.
+
+## Architecture
+
+This project demonstrates a clean separation between animation generation and rendering:
+
+```
+Generators (Rust binaries) → JSON Files → Web Server → WASM Renderer
+```
+
+### Components
+
+1. **Generators** (`generators/`): Standalone Rust binaries that run algorithms and output animation JSON files
+   - `dijkstra`: Dijkstra's pathfinding algorithm with configurable grid size and obstacles
+   - Easy to add more: A*, BFS, DFS, sorting algorithms, etc.
+
+2. **Server** (`server/`): Rocket web server that serves the UI and animation files
+   - REST API to list and serve animation JSON files
+   - Static file serving for HTML/CSS/JS
+   - Automatic WASM builds via `build.rs`
+
+3. **WASM Renderer** (`wasm/`): WebAssembly module that renders animations in the browser
+   - Consumes JSON animation data
+   - Canvas-based rendering
+   - Frame-by-frame playback
+
+4. **Animations** (`animations/`): JSON files containing animation data
+   - Standardized format for interoperability
+   - Grid-based visualizations with cell states
+   - Frame metadata and messages
+
+## Quick Start
+
+### Generate an animation
+
+```bash
+# Generate a 50x50 grid with 20% obstacles
+./generate.sh 50 50 0.2 "my_maze"
+
+# Or use default parameters (50x50, 20% obstacles)
+./generate.sh
+```
+
+### Run the viewer
+
+```bash
+./run.sh
+```
+
+Then open http://127.0.0.1:8000 and select an animation from the dropdown.
+
+## Manual Build
+
+```bash
+# Build WASM module
+cd wasm
+wasm-pack build --target web --out-dir ../pkg
+
+# Build and run server
+cd ../server
+cargo run --bin server
+```
+
+## Creating New Generators
+
+1. Create a new binary in `generators/`:
+```bash
+cargo new --bin generators/my_algorithm
+```
+
+2. Add to workspace in root `Cargo.toml`:
+```toml
+[workspace]
+members = ["wasm", "server", "generators/dijkstra", "generators/my_algorithm"]
+```
+
+3. Generate JSON in the format defined in `animations/README.md`
+
+4. Output to `animations/your_animation.json`
+
+## JSON Animation Format
+
+See `animations/README.md` for the complete format specification.
+
+```json
+{
+  "name": "My Animation",
+  "algorithm": "Algorithm Name",
+  "created_at": "2024-01-01T00:00:00Z",
+  "grid_config": {
+    "width": 50,
+    "height": 50
+  },
+  "metadata": {
+    "total_frames": 100,
+    "has_path": true
+  },
+  "frames": [
+    {
+      "step": 0,
+      "grid": [[0, 1, 2, ...], ...],
+      "message": "Frame description",
+      "highlighted": [[x, y], ...]
+    }
+  ]
+}
+```
+
+### Cell States
+- `0`: Empty
+- `1`: Obstacle
+- `2`: Start
+- `3`: End
+- `4`: Visited
+- `5`: Path
+
+## API Endpoints
+
+- `GET /api/animations` - List all available animations
+- `GET /api/animation/:name` - Get animation JSON by name
+- `POST /api/animations/refresh` - Refresh the animations list
 
 ## Project Structure
 
 ```
 rust_wasm/
-├── src/              # WASM animation source code
-│   ├── lib.rs       # Main entry point
-│   ├── types.rs     # Type definitions (CellState, GridConfig, etc.)
-│   ├── algorithm.rs # Dijkstra's algorithm implementation
-│   ├── animation.rs # Animation state management
-│   └── renderer.rs  # Canvas rendering logic
-├── pkg/             # Built WASM output (generated)
-├── server/          # Rocket web server
+├── wasm/               # WASM renderer
 │   ├── src/
-│   │   └── main.rs
+│   │   ├── lib.rs     # Main WASM entry point
+│   │   └── types.rs   # Color scheme and types
 │   └── Cargo.toml
-├── index.html       # Standalone HTML (for basic-http-server)
-└── Cargo.toml
+├── server/             # Rocket web server
+│   ├── src/
+│   │   └── main.rs    # Server routes and logic
+│   ├── templates/
+│   │   └── index.html # Main UI
+│   ├── static/
+│   │   ├── css/
+│   │   └── js/
+│   ├── build.rs       # Auto-build WASM
+│   └── Cargo.toml
+├── generators/         # Animation generators
+│   └── dijkstra/
+│       ├── src/
+│       │   └── main.rs
+│       └── Cargo.toml
+├── animations/         # Generated animation files
+│   └── README.md
+├── pkg/               # Built WASM output
+├── generate.sh        # Helper script to generate animations
+├── run.sh             # Helper script to run the server
+└── Cargo.toml         # Workspace configuration
 ```
 
-## Quick Start
+## Dependencies
 
-### Option 1: Using Rocket Server (Recommended)
+### WASM
+- `wasm-bindgen`: JavaScript interop
+- `web-sys`: Browser APIs
+- `serde`, `serde_json`: JSON parsing
 
-```bash
-# 1. Build the WASM module
-wasm-pack build --target web
+### Server
+- `rocket`: Web framework
+- `serde`, `serde_json`: JSON handling
 
-# 2. Run the Rocket server
-cd server
-cargo run
+### Generators
+- `serde`, `serde_json`: JSON output
+- `rand`: Random grid generation
+- `chrono`: Timestamps
 
-# 3. Open http://localhost:8000 in your browser
-```
+## Tips
 
-### Option 2: Using basic-http-server
+- Generate animations with different parameters to see various mazes
+- The dropdown refreshes when you click "Refresh"
+- Animations play frame-by-frame automatically
+- Check the browser console for debug information
 
-```bash
-# 1. Build the WASM module
-wasm-pack build --target web
+## Extending
 
-# 2. Install and run basic-http-server
-cargo install basic-http-server
-basic-http-server .
+To add a new algorithm:
 
-# 3. Open http://localhost:4000 in your browser
-```
+1. Create a generator in `generators/`
+2. Output JSON matching the format
+3. Run `./generate.sh` or build manually
+4. Animation appears in dropdown automatically
 
-## What This Does
-
-- **Visualizes Dijkstra's pathfinding algorithm** on a 50×50 grid
-- **Random obstacles** block the path (20% of cells)
-- **Animated exploration** shows nodes being visited in real-time
-- **Path highlighting** draws the shortest path once found
-- **Live statistics** display nodes explored and path length
-
-## Development Workflow
-
-1. Make changes to the WASM code in `src/`
-2. Rebuild with `wasm-pack build --target web`
-3. Refresh your browser (server auto-serves updated files)
-
-## Customization
-
-### Animation Speed & Grid Size
-Edit `src/animation.rs`:
-```rust
-pub const GRID_SIZE: usize = 50;           // Grid dimensions
-pub const OBSTACLE_PERCENTAGE: f64 = 0.2;  // 20% obstacles
-pub const ANIMATION_SPEED_MS: f64 = 10.0;  // Milliseconds per frame
-```
-
-### Colors
-Edit `src/types.rs` in `ColorScheme::default()`:
-```rust
-impl Default for ColorScheme {
-    fn default() -> Self {
-        Self {
-            empty: CellColor::new("#2a2a2a"),
-            obstacle: CellColor::new("#0a0a0a"),
-            start: CellColor::new("#00ff00"),
-            end: CellColor::new("#ff0000"),
-            visited: CellColor::new("#4444ff"),
-            path: CellColor::new("#ffaa00"),
-            // ... etc
-        }
-    }
-}
-```
-
-## Architecture
-
-The codebase is split into logical modules:
-
-- **`types.rs`**: Core data structures (cell states, colors, grid config)
-- **`algorithm.rs`**: Pathfinding algorithm trait and Dijkstra implementation
-- **`renderer.rs`**: Canvas rendering logic
-- **`animation.rs`**: Animation loop and state management
-- **`lib.rs`**: Entry point and WASM initialization
-
-This modular design makes it easy to add new algorithms (A*, BFS, DFS) or customize the visualization.
-
-## Next Steps
-
-- Add more pathfinding algorithms (A*, BFS, DFS)
-- Implement user controls (pause, restart, speed control)
-- Allow custom obstacle placement with mouse
-- Add algorithm comparison mode
-- Implement WebGL rendering for larger grids
+You can write generators in any language - just output the correct JSON format!

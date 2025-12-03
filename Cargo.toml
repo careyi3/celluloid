@@ -1,5 +1,5 @@
 [workspace]
-members = ["wasm", "server"]
+members = ["wasm", "server", "generators/dijkstra"]
 resolver = "2"
 
 [workspace.dependencies]
