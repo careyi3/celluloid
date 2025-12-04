@@ -33,14 +33,27 @@ Generators (Rust binaries) → JSON Files → Web Server → WASM Renderer
 
 ## Quick Start
 
-### Generate an animation
+### Generate animations
 
+**Dijkstra Pathfinding:**
 ```bash
 # Generate a 50x50 grid with 20% obstacles
 ./generate.sh 50 50 0.2 "my_maze"
 
 # Or use default parameters (50x50, 20% obstacles)
 ./generate.sh
+```
+
+**Conway's Game of Life:**
+```bash
+# Generate glider pattern
+./generate_gol.sh 60 60 glider 150
+
+# Random pattern with defaults (60x60, 200 generations)
+./generate_gol.sh
+
+# Dense random pattern
+./generate_gol.sh 80 80 dense 300 "gol_dense"
 ```
 
 ### Run the viewer
@@ -142,7 +155,11 @@ rust_wasm/
 │   ├── build.rs       # Auto-build WASM
 │   └── Cargo.toml
 ├── generators/         # Animation generators
-│   └── dijkstra/
+│   ├── dijkstra/      # Dijkstra pathfinding
+│   │   ├── src/
+│   │   │   └── main.rs
+│   │   └── Cargo.toml
+│   └── game_of_life/  # Conway's Game of Life
 │       ├── src/
 │       │   └── main.rs
 │       └── Cargo.toml
@@ -170,11 +187,51 @@ rust_wasm/
 - `rand`: Random grid generation
 - `chrono`: Timestamps
 
+## Available Generators
+
+### Dijkstra Pathfinding
+Visualizes Dijkstra's shortest path algorithm finding a route through obstacles.
+
+**Usage:**
+```bash
+./generate.sh [width] [height] [obstacle_%] [name]
+./generate.sh 50 50 0.2 "my_maze"
+```
+
+**Parameters:**
+- Width: Grid width (default: 50)
+- Height: Grid height (default: 50)
+- Obstacle %: Percentage of obstacles (default: 0.2 = 20%)
+- Name: Output filename (default: auto-generated)
+
+### Conway's Game of Life
+Simulates Conway's Game of Life cellular automaton with various starting patterns.
+
+**Usage:**
+```bash
+./generate_gol.sh [width] [height] [pattern] [generations] [name]
+./generate_gol.sh 60 60 glider 150
+```
+
+**Parameters:**
+- Width: Grid width (default: 60)
+- Height: Grid height (default: 60)
+- Pattern: Initial pattern - `glider`, `random`, `sparse`, `dense` (default: random)
+- Generations: Number of generations to simulate (default: 200)
+- Name: Output filename (default: auto-generated)
+
+**Patterns:**
+- `glider`: Classic glider pattern that moves across the grid
+- `random`: 30% initial cell density
+- `sparse`: 15% initial cell density
+- `dense`: 50% initial cell density
+
 ## Tips
 
-- Generate animations with different parameters to see various mazes
+- Generate animations with different parameters to see various behaviors
 - The dropdown refreshes when you click "Refresh"
 - Animations play frame-by-frame automatically
+- Game of Life uses 100ms frame delay (slower) vs pathfinding's 50ms
 - Check the browser console for debug information
 
 ## Extending
