@@ -99,12 +99,15 @@ impl AnimationPlayer {
         let grid_width = self.animation.grid_config.width as f64;
         let grid_height = self.animation.grid_config.height as f64;
 
+        let text_height = 40.0;
+        let available_height = canvas_height - text_height;
+
         let cell_width = canvas_width / grid_width;
-        let cell_height = canvas_height / grid_height;
+        let cell_height = available_height / grid_height;
         let cell_size = cell_width.min(cell_height);
 
         let x_offset = (canvas_width - (grid_width * cell_size)) / 2.0;
-        let y_offset = (canvas_height - (grid_height * cell_size)) / 2.0;
+        let y_offset = text_height + (available_height - (grid_height * cell_size)) / 2.0;
 
         self.context
             .set_fill_style(&JsValue::from_str(&self.colors.background.hex));
@@ -146,8 +149,8 @@ impl AnimationPlayer {
         if !frame.message.is_empty() {
             self.context
                 .set_fill_style(&JsValue::from_str(&self.colors.text.hex));
-            self.context.set_font("14px monospace");
-            self.context.fill_text(&frame.message, 10.0, 20.0).unwrap();
+            self.context.set_font("16px monospace");
+            self.context.fill_text(&frame.message, 10.0, 25.0).unwrap();
         }
     }
 }

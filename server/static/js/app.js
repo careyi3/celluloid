@@ -1,4 +1,5 @@
 let wasmModule = null;
+let currentAnimation = null;
 
 async function initWasm() {
   try {
@@ -7,15 +8,6 @@ async function initWasm() {
     );
 
     const canvas = document.getElementById("canvas");
-    const controlsHeight = document.querySelector(".controls").offsetHeight;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - controlsHeight;
-
-    window.addEventListener("resize", () => {
-      const controlsHeight = document.querySelector(".controls").offsetHeight;
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - controlsHeight;
-    });
 
     await init();
     wasmModule = { render_animation };
@@ -58,8 +50,13 @@ async function loadAnimations() {
     });
 
     select.addEventListener("change", async (e) => {
+      const runBtn = document.getElementById("run-btn");
       if (e.target.value) {
         await loadAnimation(e.target.value);
+        runBtn.disabled = false;
+      } else {
+        runBtn.disabled = true;
+        currentAnimation = null;
       }
     });
   } catch (error) {
@@ -74,16 +71,57 @@ async function loadAnimation(filename) {
     const animationData = await response.json();
 
     console.log("Loaded animation:", animationData.name);
-
-    if (wasmModule && wasmModule.render_animation) {
-      const canvas = document.getElementById("canvas");
-      wasmModule.render_animation(canvas, JSON.stringify(animationData));
-    } else {
-      console.error("WASM module not initialized");
-    }
+    currentAnimation = animationData;
   } catch (error) {
     console.error("Failed to load animation:", error);
     showError("Failed to load animation", error.message);
+  }
+}
+
+function runAnimation() {
+  if (!currentAnimation) {
+    console.error("No animation loaded");
+    return;
+  }
+
+  if (wasmModule && wasmModule.render_animation) {
+    const container = document.querySelector(".canvas-container");
+
+    const oldCanvas = document.getElementById("canvas");
+    if (oldCanvas) {
+      oldCanvas.remove();
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.id = "canvas";
+    container.appendChild(canvas);
+
+    const textHeight = 40;
+    const padding = 40;
+    const margin = 20;
+    const borderWidth = 4;
+
+    const containerWidth = container.clientWidth - margin * 2;
+    const containerHeight = container.clientHeight - margin * 2;
+
+    const gridWidth = currentAnimation.grid_config.width;
+    const gridHeight = currentAnimation.grid_config.height;
+
+    const cellSizeByWidth =
+      (containerWidth - padding * 2 - borderWidth * 2) / gridWidth;
+    const cellSizeByHeight =
+      (containerHeight - padding * 2 - textHeight - borderWidth * 2) /
+      gridHeight;
+    const cellSize = Math.min(cellSizeByWidth, cellSizeByHeight, 15);
+
+    canvas.width = gridWidth * cellSize + padding * 2;
+    canvas.height = gridHeight * cellSize + textHeight + padding * 2;
+
+    canvas.style.display = "block";
+
+    wasmModule.render_animation(canvas, JSON.stringify(currentAnimation));
+  } else {
+    console.error("WASM module not initialized");
   }
 }
 
@@ -95,6 +133,10 @@ function showError(title, message) {
     </div>
   `;
 }
+
+document.getElementById("run-btn").addEventListener("click", () => {
+  runAnimation();
+});
 
 document.getElementById("refresh-btn").addEventListener("click", async () => {
   await fetch("/api/animations/refresh", { method: "POST" });
