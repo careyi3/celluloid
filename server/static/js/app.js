@@ -45,7 +45,7 @@ async function loadAnimations() {
     data.animations.forEach((anim) => {
       const option = document.createElement("option");
       option.value = anim.file;
-      option.textContent = `${anim.name} (${anim.algorithm})`;
+      option.textContent = anim.name;
       select.appendChild(option);
     });
 

@@ -18,7 +18,6 @@ struct AnimationList {
 struct AnimationInfo {
     name: String,
     file: String,
-    algorithm: String,
     created_at: String,
 }
 
@@ -72,7 +71,6 @@ fn scan_animations() -> AnimationList {
                                 .and_then(|s| s.to_str())
                                 .unwrap_or("unknown")
                                 .to_string(),
-                            algorithm: data["algorithm"].as_str().unwrap_or("unknown").to_string(),
                             created_at: data["created_at"].as_str().unwrap_or("").to_string(),
                         });
                     }

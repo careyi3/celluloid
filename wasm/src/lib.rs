@@ -1,17 +1,53 @@
-mod types;
-
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::rc::Rc;
-use types::ColorScheme;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
+#[derive(Clone, Debug)]
+struct CellColor {
+    hex: String,
+}
+
+impl CellColor {
+    fn new(hex: &str) -> Self {
+        Self {
+            hex: hex.to_string(),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct ColorScheme {
+    empty: CellColor,
+    obstacle: CellColor,
+    start: CellColor,
+    end: CellColor,
+    visited: CellColor,
+    path: CellColor,
+    background: CellColor,
+    text: CellColor,
+}
+
+impl Default for ColorScheme {
+    fn default() -> Self {
+        Self {
+            empty: CellColor::new("#2a2a2a"),
+            obstacle: CellColor::new("#0a0a0a"),
+            start: CellColor::new("#00ff00"),
+            end: CellColor::new("#ff0000"),
+            visited: CellColor::new("#4444ff"),
+            path: CellColor::new("#ffaa00"),
+            background: CellColor::new("#1a1a1a"),
+            text: CellColor::new("#ffffff"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AnimationData {
     pub name: String,
-    pub algorithm: String,
     pub created_at: String,
     pub grid_config: GridConfig,
     pub metadata: Metadata,
