@@ -1,5 +1,5 @@
 [package]
-name = "rust_wasm_animation"
+name = "celluloid_wasm"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
+celluloid-core = { workspace = true }
 wasm-bindgen = { workspace = true }
 js-sys = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }

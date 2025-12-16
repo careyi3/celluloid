@@ -1,8 +1,9 @@
 [workspace]
-members = ["wasm", "server"]
+members = ["celluloid-core", "wasm", "server"]
 resolver = "2"
 
 [workspace.dependencies]
+celluloid-core = { path = "celluloid-core" }
 wasm-bindgen = "0.2"
 web-sys = "0.3"
 js-sys = "0.3"

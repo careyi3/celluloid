@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use celluloid_core::{AnimationData, Frame};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -43,41 +43,6 @@ impl Default for ColorScheme {
             text: CellColor::new("#ffffff"),
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AnimationData {
-    pub name: String,
-    pub created_at: String,
-    pub grid_config: GridConfig,
-    pub metadata: Metadata,
-    pub frames: Vec<Frame>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct GridConfig {
-    pub width: usize,
-    pub height: usize,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Metadata {
-    pub total_frames: usize,
-    pub has_path: bool,
-    #[serde(default = "default_frame_delay")]
-    pub frame_delay_ms: f64,
-}
-
-fn default_frame_delay() -> f64 {
-    50.0
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Frame {
-    pub step: usize,
-    pub grid: Vec<Vec<u8>>,
-    pub message: String,
-    pub highlighted: Vec<(usize, usize)>,
 }
 
 struct AnimationPlayer {

@@ -1,0 +1,18 @@
+[package]
+name = "celluloid-core"
+version = "0.0.1"
+edition = "2021"
+description = "Data models for Celluloid grid-based animations"
+license = "MIT"
+homepage = "https://github.com/careyi3/celluloid"
+repository = "https://github.com/careyi3/celluloid"
+readme = "README.md"
+keywords = ["animation", "grid", "cellular-automata", "visualization"]
+categories = ["data-structures", "visualization"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+serde_json = "1.0"

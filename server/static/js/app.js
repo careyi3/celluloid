@@ -4,7 +4,7 @@ let currentAnimation = null;
 async function initWasm() {
   try {
     const { default: init, render_animation } = await import(
-      "/pkg/rust_wasm_animation.js"
+      "/pkg/celluloid_wasm.js"
     );
 
     const canvas = document.getElementById("canvas");

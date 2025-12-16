@@ -1,10 +1,10 @@
 [package]
-name = "wasm_animation_server"
+name = "celluloid"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "server"
+name = "celluloid"
 path = "src/main.rs"
 
 [dependencies]

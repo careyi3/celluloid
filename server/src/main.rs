@@ -43,7 +43,8 @@ fn list_animations(cache: &State<AnimationCache>) -> Json<AnimationList> {
 
 #[get("/animation/<name>")]
 async fn get_animation(name: String) -> Option<NamedFile> {
-    let path = Path::new(relative!("../animations")).join(format!("{}.json", name));
+    let current_dir = std::env::current_dir().ok()?;
+    let path = current_dir.join(format!("{}.json", name));
     NamedFile::open(path).await.ok()
 }
 
@@ -55,10 +56,10 @@ fn refresh_animations(cache: &State<AnimationCache>) -> Json<AnimationList> {
 }
 
 fn scan_animations() -> AnimationList {
-    let animations_dir = Path::new(relative!("../animations"));
+    let animations_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let mut animations = Vec::new();
 
-    if let Ok(entries) = fs::read_dir(animations_dir) {
+    if let Ok(entries) = fs::read_dir(&animations_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
@@ -91,6 +92,13 @@ fn not_found() -> String {
 
 #[launch]
 fn rocket() -> _ {
+    println!("Starting Celluloid");
+    println!(
+        "Serving animations from: {}",
+        std::env::current_dir().unwrap_or_default().display()
+    );
+    println!("Navigate to: http://localhost:8000");
+
     rocket::build()
         .manage(AnimationCache::new(None))
         .mount("/", routes![index])
