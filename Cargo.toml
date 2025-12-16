@@ -9,3 +9,9 @@ web-sys = "0.3"
 js-sys = "0.3"
 rocket = { version = "0.5", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+
+[profile.release]
+opt-level = 1
+lto = false
+codegen-units = 64
+incremental = true
