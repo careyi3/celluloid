@@ -10,7 +10,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-celluloid-core = "0.1"
+celluloid-core = "0.0.1"
 ```
 
 ## Example
