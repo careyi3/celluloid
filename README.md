@@ -1,35 +1,64 @@
 # Celluloid
 
-Browser-based viewer for cellular automata and grid-based animations.
+Record what your Rust puzzle solution does, then scrub through it.
 
 ## Install
 
 ```bash
-cargo install --path server
+cargo xtask web                  # optional, for `celluloid bundle`
+cargo install --path celluloid
 ```
 
-## Usage
+## Record
 
-```bash
-cd /path/to/animations
-celluloid
+```rust
+use celluloid_core::Recorder;
+
+let mut rec = Recorder::new("Day 12");
+let g = rec.grid("map", width, height);
+rec.set(g, (x, y), "wall");
+rec.marker(g, "me", (x, y));
+rec.var("steps", steps);
+rec.frame("step");
+rec.save("day12.json")?;
 ```
 
-Open `http://localhost:8000`
+| Panel | Create | Address |
+| --- | --- | --- |
+| Grid | `rec.grid(name, w, h)` | `(x, y)` |
+| Hex | `rec.hex(name, Orientation::Pointy)` | `(q, r)` |
+| Array | `rec.array(name, values)` | index |
+| Tree | `rec.tree(name)` | node name |
+| Graph | `rec.graph(name, directed)` | node name |
 
-## Update
+Examples: `cargo run -p celluloid-core --example avl` (also `game_of_life`,
+`insertion_sort`, `hex_life`, `dijkstra`, `filesystem`).
+
+## View
 
 ```bash
-cargo install --path server --force
+celluloid                # browse .json files here
+celluloid day12.json     # open one; reloads when it changes
 ```
 
-If WASM code changed:
+Space plays, ← → step, `[` `]` jump between bookmarks, pinch zooms.
+
+## Share
+
 ```bash
-wasm-pack build --target web --out-dir pkg wasm/
-cp -r wasm/pkg/* pkg/
-cargo install --path server --force
+celluloid bundle day12.json      # self-contained day12.html
+celluloid convert old.json       # upgrade a 0.0.1 file
+```
+
+To embed, serve `celluloid/web/*` and:
+
+```js
+import init, { Player } from "/celluloid_web.js";
+await init();
+const player = await Player.start(canvas);
+player.load(json);
 ```
 
 ## License
 
-Licensed under MIT license.
+MIT

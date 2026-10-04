@@ -1,8 +1,8 @@
 [package]
 name = "celluloid-core"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
-description = "Data models for Celluloid grid-based animations"
+description = "Recorder and file format for Celluloid animations"
 license = "MIT"
 homepage = "https://github.com/careyi3/celluloid"
 repository = "https://github.com/careyi3/celluloid"
@@ -12,7 +12,5 @@ categories = ["data-structures", "visualization"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4", features = ["serde"] }
-
-[dev-dependencies]
 serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }

@@ -1,0 +1,13 @@
+[package]
+name = "celluloid"
+version = "0.0.1"
+edition = "2021"
+description = "Viewer for Celluloid animations"
+license = "MIT"
+repository = "https://github.com/careyi3/celluloid"
+
+[dependencies]
+celluloid-core = { workspace = true }
+celluloid-view = { workspace = true, features = ["native"] }
+serde_json = "1.0"
+base64 = "0.22"

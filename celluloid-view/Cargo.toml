@@ -1,0 +1,18 @@
+[package]
+name = "celluloid-view"
+version = "0.0.1"
+edition = "2021"
+description = "egui viewer for Celluloid animations"
+license = "MIT"
+repository = "https://github.com/careyi3/celluloid"
+
+[features]
+default = ["native"]
+native = ["eframe/default"]
+
+[dependencies]
+celluloid-core = { workspace = true }
+eframe = { workspace = true }
+
+[dev-dependencies]
+egui_kittest = { version = "0.36", features = ["wgpu", "snapshot"] }

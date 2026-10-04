@@ -1,60 +1,56 @@
 # celluloid-core
 
-Data models for [Celluloid](https://github.com/careyi3/celluloid) grid-based animations.
-
-This crate provides the core data structures for creating grid-based animations that can be visualized with the Celluloid viewer. Perfect for Advent of Code visualizations, cellular automata, pathfinding algorithms, and other grid-based simulations.
-
-## Usage
-
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-celluloid-core = "0.0.1"
-```
-
-## Example
+Recorder and file format for [Celluloid](https://github.com/careyi3/celluloid)
+animations: animated debugging for grid puzzles, cellular automata,
+path-finding and the like.
 
 ```rust
-use celluloid_core::{AnimationData, Frame, CellState};
+use celluloid_core::Recorder;
 
-fn main() {
-    let mut animation = AnimationData::new("My Animation", 10, 10)
-        .with_frame_delay(100.0);
-
-    let mut grid = vec![vec![CellState::Empty as u8; 10]; 10];
-    grid[5][5] = CellState::Start as u8;
-    
-    let frame = Frame::new(0, grid, "Initial state");
-    animation.add_frame(frame);
-
-    let json = serde_json::to_string_pretty(&animation).unwrap();
-    std::fs::write("animation.json", json).unwrap();
+let mut rec = Recorder::new("Game of Life");
+let g = rec.grid("life", 40, 40);
+rec.state(g, "alive", "#59a14f");
+for generation in 0..200 {
+    rec.redraw(g, |x, y| if alive[y][x] { "alive" } else { "empty" });
+    rec.var("generation", generation);
+    rec.frame(format!("generation {generation}"));
+    step(&mut alive);
 }
+rec.save("life.json")?;
 ```
 
-## Cell States
+View the result with the `celluloid` binary from the repository.
 
-- `Empty` (0) - Empty cell
-- `Obstacle` (1) - Blocked cell  
-- `Start` (2) - Starting position
-- `End` (3) - Goal position
-- `Visited` (4) - Visited during search
-- `Path` (5) - Part of final path
+## Concepts
 
-## Viewing Animations
+- **Panels**: a recording holds one or more square grids (`rec.grid`), hex
+  grids (`rec.hex`, axial coordinates, unbounded), arrays (`rec.array`),
+  trees (`rec.tree`) and graphs (`rec.graph`).
+- **States**: named element states with colours. Grid and hex cells start as
+  `"empty"`, array items as `"default"`. States used without
+  `rec.state(...)` get a colour from a built-in palette.
+- **Labels**: short text drawn on an element. On arrays they travel with
+  the item.
+- **Markers**: named dots that glide between cells, or pointers under an
+  array.
+- **Array ops**: `value`, `swap`, `insert`, `push`, `remove`, `pop` and
+  `move_item`. Items keep their identity, so the viewer animates them
+  moving.
+- **Nodes**: tree and graph nodes are named by anything `Display` and
+  created when first mentioned. Trees link nodes through child slots
+  (`left`, `right`, `add_child`); moving a node detaches it from its old
+  parent, so rotations can be recorded in any order. Graphs have `edge`,
+  `set_edge`, `edge_label` and `place` for fixed positions.
+- **Vars**: named values shown next to the animation, kept until changed.
+- **Bookmarks**: named frames you can jump to.
 
-Install the Celluloid viewer:
+Frames store small ops ("these cells are now `seen`") rather than whole
+grids, and the viewer keeps periodic snapshots so scrubbing stays instant.
+`Timeline` gives the same random access to the state at any frame in
+your own code.
 
-```bash
-cargo install --git https://github.com/careyi3/celluloid --path server
-```
-
-Then run it in a directory with your animation JSON files:
-
-```bash
-celluloid
-```
+Files from 0.0.1 (a full grid per frame) are still read by `from_json`
+and converted automatically; their types live in `celluloid_core::legacy`.
 
 ## License
 
