@@ -1,115 +1,65 @@
-use serde::{Deserialize, Serialize};
+//! Recorder and file format for Celluloid animations.
+//!
+//! An animation is a set of panels (square grids, hex grids, arrays,
+//! trees, graphs) plus
+//! a list of frames. Each frame holds
+//! small ops ("these cells are now `seen`", "marker `me` moved to (3, 4)")
+//! rather than a copy of the whole grid. [`Recorder`] produces animations,
+//! [`Timeline`] replays them.
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AnimationData {
-    pub name: String,
-    pub created_at: String,
-    pub grid_config: GridConfig,
-    pub metadata: Metadata,
-    pub frames: Vec<Frame>,
-}
+mod color;
+mod format;
+pub mod hex;
+pub mod legacy;
+mod recorder;
+mod replay;
 
-impl AnimationData {
-    pub fn new(name: impl Into<String>, width: usize, height: usize) -> Self {
-        let now = chrono::Utc::now().to_rfc3339();
-        Self {
-            name: name.into(),
-            created_at: now,
-            grid_config: GridConfig { width, height },
-            metadata: Metadata {
-                total_frames: 0,
-                has_path: false,
-                frame_delay_ms: 50.0,
-            },
-            frames: Vec::new(),
-        }
-    }
+pub use color::Color;
+pub use format::{
+    Animation, ArrayStyle, At, Frame, MarkerDef, NodeDef, Op, Orientation, Panel, PanelKind,
+    StateDef, FORMAT_VERSION,
+};
+pub use recorder::{Array, Graph, Grid, Handle, Hex, NodePanel, Number, Pos, Recorder, Target, Tree};
+pub use replay::{
+    ArrayState, Edge, GraphState, GridState, HexState, Item, Node, PanelState, State, Timeline,
+    TreeState,
+};
 
-    pub fn add_frame(&mut self, frame: Frame) {
-        self.frames.push(frame);
-        self.metadata.total_frames = self.frames.len();
-    }
+use std::fmt;
 
-    pub fn with_frame_delay(mut self, delay_ms: f64) -> Self {
-        self.metadata.frame_delay_ms = delay_ms;
-        self
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub struct Error(pub String);
 
-    pub fn with_has_path(mut self, has_path: bool) -> Self {
-        self.metadata.has_path = has_path;
-        self
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct GridConfig {
-    pub width: usize,
-    pub height: usize,
-}
+impl std::error::Error for Error {}
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Metadata {
-    pub total_frames: usize,
-    pub has_path: bool,
-    #[serde(default = "default_frame_delay")]
-    pub frame_delay_ms: f64,
-}
+/// Parse an animation file, converting the pre-0.1 full-grid format if needed.
+pub fn from_json(json: &str) -> Result<Animation, Error> {
+    let value: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| Error(format!("invalid JSON: {e}")))?;
 
-fn default_frame_delay() -> f64 {
-    50.0
-}
+    let animation = if value.get("format").is_some() {
+        serde_json::from_value::<Animation>(value)
+            .map_err(|e| Error(format!("invalid animation: {e}")))?
+    } else if value.get("grid_config").is_some() {
+        let old = serde_json::from_value::<legacy::AnimationData>(value)
+            .map_err(|e| Error(format!("invalid legacy animation: {e}")))?;
+        legacy::convert(&old)
+    } else {
+        return Err(Error("not a celluloid animation".into()));
+    };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Frame {
-    pub step: usize,
-    pub grid: Vec<Vec<u8>>,
-    pub message: String,
-    pub highlighted: Vec<(usize, usize)>,
-}
-
-impl Frame {
-    pub fn new(step: usize, grid: Vec<Vec<u8>>, message: impl Into<String>) -> Self {
-        Self {
-            step,
-            grid,
-            message: message.into(),
-            highlighted: Vec::new(),
-        }
+    if animation.format > FORMAT_VERSION {
+        return Err(Error(format!(
+            "animation uses format {} but this build only understands up to {}",
+            animation.format, FORMAT_VERSION
+        )));
     }
-
-    pub fn with_highlighted(mut self, coords: Vec<(usize, usize)>) -> Self {
-        self.highlighted = coords;
-        self
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u8)]
-pub enum CellState {
-    Empty = 0,
-    Obstacle = 1,
-    Start = 2,
-    End = 3,
-    Visited = 4,
-    Path = 5,
-}
-
-impl From<CellState> for u8 {
-    fn from(state: CellState) -> u8 {
-        state as u8
-    }
-}
-
-impl From<u8> for CellState {
-    fn from(value: u8) -> Self {
-        match value {
-            0 => CellState::Empty,
-            1 => CellState::Obstacle,
-            2 => CellState::Start,
-            3 => CellState::End,
-            4 => CellState::Visited,
-            5 => CellState::Path,
-            _ => CellState::Empty,
-        }
-    }
+    animation.validate()?;
+    Ok(animation)
 }
