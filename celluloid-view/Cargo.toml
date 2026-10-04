@@ -1,6 +1,6 @@
 [package]
 name = "celluloid-view"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 description = "egui viewer for Celluloid animations"
 license = "MIT"
