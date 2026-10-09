@@ -1,3 +1,6 @@
+//! Desktop viewer for [Celluloid](https://github.com/careyi3/celluloid)
+//! animations. Run `celluloid --help` for usage.
+
 mod bundle;
 
 use std::path::PathBuf;

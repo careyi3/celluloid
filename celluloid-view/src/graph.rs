@@ -25,7 +25,9 @@ pub fn layout(animation: &Animation, p: usize) -> GraphLayout {
     let mut edges: BTreeSet<(usize, usize)> = BTreeSet::new();
     for op in animation.frames.iter().flat_map(|f| &f.ops) {
         let pair = match op {
-            Op::AddEdge { panel, a, b } | Op::EdgeLabel { panel, a, b, .. } if *panel as usize == p => {
+            Op::AddEdge { panel, a, b } | Op::EdgeLabel { panel, a, b, .. }
+                if *panel as usize == p =>
+            {
                 vec![(*a, *b)]
             }
             Op::EdgeSet { panel, edges, .. } if *panel as usize == p => {
@@ -40,11 +42,14 @@ pub fn layout(animation: &Animation, p: usize) -> GraphLayout {
             }
         }
     }
-    let fixed: Vec<Option<Pos2>> = nodes.iter().map(|d| d.pos.map(|[x, y]| pos2(x, y))).collect();
-    let pos = force_layout(n, &edges, &fixed);
-    let extent = pos
+    let fixed: Vec<Option<Pos2>> = nodes
         .iter()
-        .fold(Rect::NOTHING, |r, &p| r.union(Rect::from_center_size(p, Vec2::ZERO)));
+        .map(|d| d.pos.map(|[x, y]| pos2(x, y)))
+        .collect();
+    let pos = force_layout(n, &edges, &fixed);
+    let extent = pos.iter().fold(Rect::NOTHING, |r, &p| {
+        r.union(Rect::from_center_size(p, Vec2::ZERO))
+    });
     let extent = if extent == Rect::NOTHING {
         Rect::from_center_size(Pos2::ZERO, vec2(4.0, 4.0))
     } else {
@@ -64,9 +69,9 @@ fn force_layout(n: usize, edges: &BTreeSet<(usize, usize)>, fixed: &[Option<Pos2
     let pinned: Vec<usize> = (0..n).filter(|&i| fixed[i].is_some()).collect();
     let mut centre = Pos2::ZERO;
     if !pinned.is_empty() {
-        let bounds = pinned
-            .iter()
-            .fold(Rect::NOTHING, |r, &i| r.union(Rect::from_center_size(fixed[i].unwrap(), Vec2::ZERO)));
+        let bounds = pinned.iter().fold(Rect::NOTHING, |r, &i| {
+            r.union(Rect::from_center_size(fixed[i].unwrap(), Vec2::ZERO))
+        });
         let side = bounds.size().max_elem().max(1e-6);
         let scale = (pinned.len() as f32).sqrt().max(1.0) * k * 1.2 / side;
         for &i in &pinned {
@@ -128,7 +133,10 @@ fn force_layout(n: usize, edges: &BTreeSet<(usize, usize)>, fixed: &[Option<Pos2
         }
         for &(a, b) in &neighbours {
             let mid = pos[a] + (pos[b] - pos[a]) * 0.5;
-            let cell = ((mid.x / cutoff).floor() as i32, (mid.y / cutoff).floor() as i32);
+            let cell = (
+                (mid.x / cutoff).floor() as i32,
+                (mid.y / cutoff).floor() as i32,
+            );
             for dx in -1..=1 {
                 for dy in -1..=1 {
                     let Some(near) = grid.get(&(cell.0 + dx, cell.1 + dy)) else {
@@ -250,6 +258,9 @@ mod tests {
         let edges = BTreeSet::from([(0, 2), (1, 2)]);
         let p = force_layout(3, &edges, &fixed);
         assert_eq!(p[0].y, p[1].y);
-        assert!(p[0].x < p[2].x && p[2].x < p[1].x, "free node settles between");
+        assert!(
+            p[0].x < p[2].x && p[2].x < p[1].x,
+            "free node settles between"
+        );
     }
 }

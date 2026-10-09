@@ -1,11 +1,30 @@
-//! Recorder and file format for Celluloid animations.
+//! Record what your code does, frame by frame, and save it for the
+//! [Celluloid](https://github.com/careyi3/celluloid) viewer.
 //!
-//! An animation is a set of panels (square grids, hex grids, arrays,
-//! trees, graphs) plus
-//! a list of frames. Each frame holds
-//! small ops ("these cells are now `seen`", "marker `me` moved to (3, 4)")
-//! rather than a copy of the whole grid. [`Recorder`] produces animations,
-//! [`Timeline`] replays them.
+//! Make a [`Recorder`], add a panel and change things in it. Each call to
+//! [`Recorder::frame`] ends a step. Frames only store what changed, so
+//! recording every step of a big loop is fine.
+//!
+//! ```no_run
+//! use celluloid_core::Recorder;
+//!
+//! let mut rec = Recorder::new("Day 12");
+//! let g = rec.grid("map", 10, 10);
+//! rec.state(g, "wall", "#555555");
+//! rec.set(g, (3, 4), "wall");
+//!
+//! for x in 0..10 {
+//!     rec.marker(g, "me", (x, 0));
+//!     rec.var("steps", x);
+//!     rec.frame("step");
+//! }
+//!
+//! rec.save("day12.json")?;
+//! # Ok::<(), std::io::Error>(())
+//! ```
+//!
+//! Open the file with `celluloid day12.json`. To read a file back in your
+//! own code, use [`from_json`] and step through it with [`Timeline`].
 
 mod color;
 mod format;
@@ -19,7 +38,9 @@ pub use format::{
     Animation, ArrayStyle, At, Frame, MarkerDef, NodeDef, Op, Orientation, Panel, PanelKind,
     StateDef, FORMAT_VERSION,
 };
-pub use recorder::{Array, Graph, Grid, Handle, Hex, NodePanel, Number, Pos, Recorder, Target, Tree};
+pub use recorder::{
+    Array, Graph, Grid, Handle, Hex, NodePanel, Number, Pos, Recorder, Target, Tree,
+};
 pub use replay::{
     ArrayState, Edge, GraphState, GridState, HexState, Item, Node, PanelState, State, Timeline,
     TreeState,
@@ -27,6 +48,7 @@ pub use replay::{
 
 use std::fmt;
 
+/// What went wrong loading or checking an animation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Error(pub String);
 

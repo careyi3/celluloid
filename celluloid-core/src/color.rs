@@ -7,6 +7,7 @@ use std::str::FromStr;
 pub struct Color(pub [u8; 3]);
 
 impl Color {
+    /// A colour from its red, green and blue parts.
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
         Self([r, g, b])
     }
@@ -17,7 +18,11 @@ impl Color {
         let digit = |i: usize, len: usize| u8::from_str_radix(s.get(i..i + len)?, 16).ok();
         match s.len() {
             6 => Some(Self([digit(0, 2)?, digit(2, 2)?, digit(4, 2)?])),
-            3 => Some(Self([digit(0, 1)? * 17, digit(1, 1)? * 17, digit(2, 1)? * 17])),
+            3 => Some(Self([
+                digit(0, 1)? * 17,
+                digit(1, 1)? * 17,
+                digit(2, 1)? * 17,
+            ])),
             _ => None,
         }
     }

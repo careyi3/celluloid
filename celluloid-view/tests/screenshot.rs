@@ -192,10 +192,19 @@ fn hex_life() -> Animation {
     let h = rec.hex("board", Orientation::Pointy);
     rec.state(h, "alive", "#76b7b2");
     rec.state(h, "born", "#edc948");
-    let mut alive: HashSet<(i64, i64)> =
-        [(0, 0), (1, 0), (0, 1), (-1, 1), (-1, 0), (2, -1), (1, -2), (-2, 2), (0, -1)]
-            .into_iter()
-            .collect();
+    let mut alive: HashSet<(i64, i64)> = [
+        (0, 0),
+        (1, 0),
+        (0, 1),
+        (-1, 1),
+        (-1, 0),
+        (2, -1),
+        (1, -2),
+        (-2, 2),
+        (0, -1),
+    ]
+    .into_iter()
+    .collect();
     for gen in 0..30 {
         let mut counts: HashMap<(i64, i64), usize> = HashMap::new();
         for &c in &alive {
@@ -239,13 +248,19 @@ fn screenshots() {
     let animation = quicksort();
     let before_swap = (1..animation.frames.len())
         .find(|&f| {
-            animation.frames[f].ops.iter().any(|op| {
-                matches!(op, celluloid_core::Op::Swap { a, b, .. } if a.abs_diff(*b) >= 3)
-            })
+            animation.frames[f].ops.iter().any(
+                |op| matches!(op, celluloid_core::Op::Swap { a, b, .. } if a.abs_diff(*b) >= 3),
+            )
         })
         .unwrap()
         - 1;
-    render_with("swap-bars", animation.clone(), before_swap, egui::pos2(0.0, 0.0), true);
+    render_with(
+        "swap-bars",
+        animation.clone(),
+        before_swap,
+        egui::pos2(0.0, 0.0),
+        true,
+    );
     let mut boxes = animation;
     if let celluloid_core::PanelKind::Array { style, .. } = &mut boxes.panels[0].kind {
         *style = celluloid_core::ArrayStyle::Boxes;
@@ -254,12 +269,23 @@ fn screenshots() {
 
     let tree = avl::record().finish();
     let rotation = tree.bookmarks().nth(2).unwrap().0;
-    render_with("avl-rotating", tree.clone(), rotation - 1, egui::pos2(0.0, 0.0), true);
+    render_with(
+        "avl-rotating",
+        tree.clone(),
+        rotation - 1,
+        egui::pos2(0.0, 0.0),
+        true,
+    );
     let last = tree.frames.len() - 1;
     render("avl", tree, last, egui::pos2(0.0, 0.0));
 
     let graph = dijkstra::record().finish();
-    render("dijkstra-mid", graph.clone(), graph.frames.len() / 2, egui::pos2(0.0, 0.0));
+    render(
+        "dijkstra-mid",
+        graph.clone(),
+        graph.frames.len() / 2,
+        egui::pos2(0.0, 0.0),
+    );
     let last = graph.frames.len() - 1;
     render("dijkstra", graph, last, egui::pos2(0.0, 0.0));
 

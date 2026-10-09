@@ -1,57 +1,94 @@
 # celluloid-core
 
-Recorder and file format for [Celluloid](https://github.com/careyi3/celluloid)
-animations: animated debugging for grid puzzles, cellular automata,
-path-finding and the like.
+Recorder and file format for [Celluloid](https://github.com/careyi3/celluloid) animations.
+
+Add a few calls to your code and it writes a JSON file you can step through in the `celluloid` viewer. Each frame only stores what changed, so recording every step of a big loop is fine.
+
+You can find the [crates.io listing here](https://crates.io/crates/celluloid-core).
+
+![CI](https://github.com/careyi3/celluloid/actions/workflows/test.yml/badge.svg)
+[![Crates.io](https://img.shields.io/crates/v/celluloid-core.svg)](https://crates.io/crates/celluloid-core)
+[![Crates.io](https://img.shields.io/crates/d/celluloid-core.svg)](https://crates.io/crates/celluloid-core)
+
+## Setup
+
+```bash
+$ cargo add celluloid-core
+$ cargo install celluloid
+```
+
+## Usage
 
 ```rust
 use celluloid_core::Recorder;
 
-let mut rec = Recorder::new("Game of Life");
-let g = rec.grid("life", 40, 40);
-rec.state(g, "alive", "#59a14f");
-for generation in 0..200 {
-    rec.redraw(g, |x, y| if alive[y][x] { "alive" } else { "empty" });
-    rec.var("generation", generation);
-    rec.frame(format!("generation {generation}"));
-    step(&mut alive);
+let mut rec = Recorder::new("Day 12");
+let g = rec.grid("map", 10, 10);
+rec.state(g, "wall", "#555555");
+rec.set(g, (3, 4), "wall");
+
+for x in 0..10 {
+    rec.marker(g, "me", (x, 0));
+    rec.var("steps", x);
+    rec.frame("step");
 }
-rec.save("life.json")?;
+
+rec.save("day12.json")?;
 ```
 
-View the result with the `celluloid` binary from the repository.
+Then open it:
 
-## Concepts
+```bash
+$ celluloid day12.json
+```
 
-- **Panels**: a recording holds one or more square grids (`rec.grid`), hex
-  grids (`rec.hex`, axial coordinates, unbounded), arrays (`rec.array`),
-  trees (`rec.tree`) and graphs (`rec.graph`).
-- **States**: named element states with colours. Grid and hex cells start as
-  `"empty"`, array items as `"default"`. States used without
-  `rec.state(...)` get a colour from a built-in palette.
-- **Labels**: short text drawn on an element. On arrays they travel with
-  the item.
-- **Markers**: named dots that glide between cells, or pointers under an
-  array.
-- **Array ops**: `value`, `swap`, `insert`, `push`, `remove`, `pop` and
-  `move_item`. Items keep their identity, so the viewer animates them
-  moving.
-- **Nodes**: tree and graph nodes are named by anything `Display` and
-  created when first mentioned. Trees link nodes through child slots
-  (`left`, `right`, `add_child`); moving a node detaches it from its old
-  parent, so rotations can be recorded in any order. Graphs have `edge`,
-  `set_edge`, `edge_label` and `place` for fixed positions.
-- **Vars**: named values shown next to the animation, kept until changed.
-- **Bookmarks**: named frames you can jump to.
+## Panels
 
-Frames store small ops ("these cells are now `seen`") rather than whole
-grids, and the viewer keeps periodic snapshots so scrubbing stays instant.
-`Timeline` gives the same random access to the state at any frame in
-your own code.
+| Panel | Create | Address |
+| --- | --- | --- |
+| Grid | `rec.grid(name, w, h)` | `(x, y)` |
+| Hex | `rec.hex(name, Orientation::Pointy)` | `(q, r)` |
+| Array | `rec.array(name, values)` | index |
+| Tree | `rec.tree(name)` | node name |
+| Graph | `rec.graph(name, directed)` | node name |
 
-Files from 0.0.1 (a full grid per frame) are still read by `from_json`
-and converted automatically; their types live in `celluloid_core::legacy`.
+A recording can have as many panels as you like.
+
+## Calls
+
+| Call | What it does |
+| --- | --- |
+| `rec.state(p, name, "#rrggbb")` | Give a state a colour. Unset states get one from a palette |
+| `rec.set(p, at, state)` | Set an element's state |
+| `rec.label(p, at, text)` | Write text on an element |
+| `rec.marker(p, name, at)` | Move a named dot. It glides between frames |
+| `rec.var(name, value)` | Show a value beside the animation |
+| `rec.bookmark(name)` | Mark this frame so you can jump to it |
+| `rec.frame(message)` | End the frame |
+
+Arrays also have `swap`, `insert`, `push`, `remove`, `pop` and `move_item`. Trees use `left`, `right` and `add_child`. Graphs use `edge` and `set_edge`. See [docs.rs](https://docs.rs/celluloid-core) for the full list.
+
+There are runnable examples in [`examples`](examples):
+
+```bash
+$ cargo run -p celluloid-core --example dijkstra
+$ celluloid dijkstra.json
+```
+
+## Reading files
+
+`from_json` loads a file and `Timeline` gives you the state at any frame:
+
+```rust
+use celluloid_core::{from_json, Timeline};
+
+let json = std::fs::read_to_string("day12.json")?;
+let mut timeline = Timeline::new(from_json(&json)?);
+let state = timeline.seek(5);
+```
+
+Files from 0.0.1 still load and are converted on the way in.
 
 ## License
 
-Licensed under MIT license.
+MIT

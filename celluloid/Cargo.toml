@@ -1,10 +1,14 @@
 [package]
 name = "celluloid"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-description = "Viewer for Celluloid animations"
+description = "Desktop viewer for Celluloid animations"
 license = "MIT"
+homepage = "https://github.com/careyi3/celluloid"
 repository = "https://github.com/careyi3/celluloid"
+readme = "README.md"
+keywords = ["animation", "visualization", "debugging", "advent-of-code"]
+categories = ["visualization", "command-line-utilities", "development-tools::debugging"]
 
 [dependencies]
 celluloid-core = { workspace = true }

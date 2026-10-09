@@ -589,7 +589,7 @@ dependencies = [
 
 [[package]]
 name = "celluloid"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "celluloid-core",
@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "celluloid-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "serde",
@@ -608,7 +608,7 @@ dependencies = [
 
 [[package]]
 name = "celluloid-view"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "celluloid-core",
  "eframe",
@@ -617,7 +617,7 @@ dependencies = [
 
 [[package]]
 name = "celluloid-web"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "celluloid-core",
  "celluloid-view",

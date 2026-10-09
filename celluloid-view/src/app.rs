@@ -32,7 +32,9 @@ impl App {
         let path = path.unwrap_or_else(|| PathBuf::from("."));
         let path = path.canonicalize().unwrap_or(path);
         let (dir, selected) = if path.is_file() {
-            let dir = path.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+            let dir = path
+                .parent()
+                .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
             (dir, Some(path))
         } else {
             (path, None)
@@ -121,8 +123,17 @@ impl App {
     }
 
     fn files_ui(&mut self, ui: &mut Ui) {
-        ui.label(RichText::new("ANIMATIONS").small().strong().color(theme::MUTED));
-        ui.label(RichText::new(self.dir.display().to_string()).small().color(theme::MUTED));
+        ui.label(
+            RichText::new("ANIMATIONS")
+                .small()
+                .strong()
+                .color(theme::MUTED),
+        );
+        ui.label(
+            RichText::new(self.dir.display().to_string())
+                .small()
+                .color(theme::MUTED),
+        );
         ui.separator();
         if self.files.is_empty() {
             ui.label(RichText::new("No .json files here").color(theme::MUTED));

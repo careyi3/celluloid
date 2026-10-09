@@ -7,12 +7,14 @@ use std::fmt;
 /// Bumped whenever the file format changes incompatibly.
 pub const FORMAT_VERSION: u32 = 1;
 
+/// A whole recording: its panels and frames. This is what gets saved as JSON.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Animation {
     pub format: u32,
     pub name: String,
     #[serde(default)]
     pub created_at: String,
+    /// Default playback speed, in milliseconds per frame.
     #[serde(default = "default_frame_delay")]
     pub frame_delay_ms: f64,
     pub panels: Vec<Panel>,
@@ -23,6 +25,7 @@ pub(crate) fn default_frame_delay() -> f64 {
     50.0
 }
 
+/// One thing being animated, like a grid or an array.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Panel {
     pub name: String,
@@ -34,6 +37,7 @@ pub struct Panel {
     pub markers: Vec<MarkerDef>,
 }
 
+/// What kind of panel this is, with its size or starting contents.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum PanelKind {
@@ -89,14 +93,18 @@ pub struct NodeDef {
     pub pos: Option<[f32; 2]>,
 }
 
+/// Which way hex panel hexagons point.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Orientation {
+    /// A corner at the top.
     #[default]
     Pointy,
+    /// A flat edge at the top.
     Flat,
 }
 
+/// How an array panel is drawn.
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ArrayStyle {
@@ -107,24 +115,30 @@ pub enum ArrayStyle {
     Boxes,
 }
 
+/// A named state and the colour it's drawn in.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct StateDef {
     pub name: String,
     pub color: Color,
 }
 
+/// A named marker and the colour it's drawn in.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct MarkerDef {
     pub name: String,
     pub color: Color,
 }
 
+/// One step of the animation.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Frame {
+    /// Changes applied when this frame is reached.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ops: Vec<Op>,
+    /// Shown while this frame is on screen.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub message: String,
+    /// Name the viewer lists this frame under, to jump to it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bookmark: Option<String>,
 }
@@ -133,7 +147,9 @@ pub struct Frame {
 /// panels, a bare index on arrays.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum At {
+    /// A grid or hex cell.
     Cell([i32; 2]),
+    /// An array item, or a tree or graph node.
     Index(u32),
 }
 
@@ -171,8 +187,12 @@ impl<'de> Deserialize<'de> for At {
             }
 
             fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<At, A::Error> {
-                let a = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let b = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let a = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let b = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 if seq.next_element::<de::IgnoredAny>()?.is_some() {
                     return Err(de::Error::invalid_length(3, &self));
                 }
@@ -198,6 +218,7 @@ impl fmt::Display for At {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum Op {
+    /// Set the state of some elements.
     Set {
         panel: u16,
         state: u16,
@@ -205,16 +226,15 @@ pub enum Op {
     },
     /// Grids and arrays: every element. Hex: every cell that isn't in
     /// `states[0]`; filling with state 0 clears the board.
-    Fill {
-        panel: u16,
-        state: u16,
-    },
+    Fill { panel: u16, state: u16 },
+    /// Show text on an element.
     Label {
         panel: u16,
         at: At,
         /// `None` clears the label.
         text: Option<String>,
     },
+    /// Move or hide a marker.
     Marker {
         panel: u16,
         marker: u16,
@@ -222,51 +242,27 @@ pub enum Op {
         /// the end, like an exclusive upper bound.
         at: Option<At>,
     },
+    /// Set a named value shown beside the animation.
     Var {
         name: String,
         /// `None` removes the variable.
         value: Option<String>,
     },
     /// Arrays: change the value of the item at an index.
-    Value {
-        panel: u16,
-        at: u32,
-        value: f64,
-    },
+    Value { panel: u16, at: u32, value: f64 },
     /// Arrays: exchange two items.
-    Swap {
-        panel: u16,
-        a: u32,
-        b: u32,
-    },
+    Swap { panel: u16, a: u32, b: u32 },
     /// Arrays: insert a new item; `at` may equal the length to append.
-    Insert {
-        panel: u16,
-        at: u32,
-        value: f64,
-    },
+    Insert { panel: u16, at: u32, value: f64 },
     /// Arrays: remove an item.
-    Remove {
-        panel: u16,
-        at: u32,
-    },
+    Remove { panel: u16, at: u32 },
     /// Arrays: take the item at `from` out and put it back in at `to`.
-    Move {
-        panel: u16,
-        from: u32,
-        to: u32,
-    },
+    Move { panel: u16, from: u32, to: u32 },
     /// Trees and graphs: make a node exist.
-    AddNode {
-        panel: u16,
-        node: u32,
-    },
+    AddNode { panel: u16, node: u32 },
     /// Trees and graphs: remove a node, its edges and its state. A tree
     /// node's children become roots.
-    RemoveNode {
-        panel: u16,
-        node: u32,
-    },
+    RemoveNode { panel: u16, node: u32 },
     /// Trees: put `child` in `parent`'s slot, detaching it from wherever
     /// it was. `None` empties the slot. If `child` is an ancestor of
     /// `parent`, the branch leading down to `parent` is cut off it first,
@@ -278,17 +274,9 @@ pub enum Op {
         child: Option<u32>,
     },
     /// Graphs: join two nodes.
-    AddEdge {
-        panel: u16,
-        a: u32,
-        b: u32,
-    },
+    AddEdge { panel: u16, a: u32, b: u32 },
     /// Graphs: unjoin two nodes.
-    RemoveEdge {
-        panel: u16,
-        a: u32,
-        b: u32,
-    },
+    RemoveEdge { panel: u16, a: u32, b: u32 },
     /// Graphs: set the state of edges.
     EdgeSet {
         panel: u16,
@@ -305,6 +293,7 @@ pub enum Op {
 }
 
 impl Op {
+    /// The panel this op changes. `None` for vars.
     pub fn panel(&self) -> Option<u16> {
         match self {
             Op::Set { panel, .. }
@@ -385,9 +374,9 @@ impl Animation {
             )),
             (PanelKind::Hex { .. }, At::Cell(_)) => Ok(()),
             (PanelKind::Array { .. }, At::Index(i)) if (i as usize) < len + extra => Ok(()),
-            (PanelKind::Array { .. }, At::Index(i)) => Err(format!(
-                "index {i} outside array {name:?} of length {len}"
-            )),
+            (PanelKind::Array { .. }, At::Index(i)) => {
+                Err(format!("index {i} outside array {name:?} of length {len}"))
+            }
             (PanelKind::Array { .. }, At::Cell(_)) => {
                 Err(format!("array {name:?} takes indices, not [x, y] cells"))
             }
@@ -399,9 +388,9 @@ impl Animation {
             (PanelKind::Tree { .. } | PanelKind::Graph { .. }, At::Index(n)) => {
                 Err(format!("unknown node {n} in {name:?}"))
             }
-            (PanelKind::Tree { .. } | PanelKind::Graph { .. }, At::Cell(_)) => {
-                Err(format!("panel {name:?} takes node indices, not [x, y] cells"))
-            }
+            (PanelKind::Tree { .. } | PanelKind::Graph { .. }, At::Cell(_)) => Err(format!(
+                "panel {name:?} takes node indices, not [x, y] cells"
+            )),
             (_, At::Index(_)) => Err(format!("panel {name:?} takes [x, y] cells, not indices")),
         };
         let index = |i: u32, len: usize, extra: usize| at(At::Index(i), len, extra);
@@ -420,7 +409,9 @@ impl Animation {
         };
 
         match op {
-            Op::Set { state: s, cells, .. } => {
+            Op::Set {
+                state: s, cells, ..
+            } => {
                 state(*s)?;
                 cells.iter().try_for_each(|&c| at(c, *len, 0))
             }
@@ -466,7 +457,10 @@ impl Animation {
             }
             Op::AddNode { node: n, .. } | Op::RemoveNode { node: n, .. } => node(*n),
             Op::Child {
-                parent, slot, child, ..
+                parent,
+                slot,
+                child,
+                ..
             } => {
                 if !matches!(panel.kind, PanelKind::Tree { .. }) {
                     return Err(format!("child only applies to trees, not {name:?}"));
@@ -482,7 +476,9 @@ impl Animation {
                 node(*a)?;
                 node(*b)
             }
-            Op::EdgeSet { state: s, edges, .. } => {
+            Op::EdgeSet {
+                state: s, edges, ..
+            } => {
                 graph_only("edge states")?;
                 state(*s)?;
                 edges.iter().try_for_each(|[a, b]| node(*a).and(node(*b)))
@@ -543,11 +539,17 @@ mod tests {
             cells: vec![At::Cell([3, 4]), At::Index(7)],
         };
         let json = serde_json::to_string(&op).unwrap();
-        assert_eq!(json, r#"{"op":"set","panel":0,"state":2,"cells":[[3,4],7]}"#);
+        assert_eq!(
+            json,
+            r#"{"op":"set","panel":0,"state":2,"cells":[[3,4],7]}"#
+        );
         assert_eq!(serde_json::from_str::<Op>(&json).unwrap(), op);
         assert!(serde_json::from_str::<At>("[1,2,3]").is_err());
         assert!(serde_json::from_str::<At>("-1").is_err());
-        assert_eq!(serde_json::from_str::<At>("[-1,2]").unwrap(), At::Cell([-1, 2]));
+        assert_eq!(
+            serde_json::from_str::<At>("[-1,2]").unwrap(),
+            At::Cell([-1, 2])
+        );
     }
 
     #[test]
@@ -557,10 +559,14 @@ mod tests {
             values: vec![1.0, 2.5],
         });
         let json = serde_json::to_string(&p).unwrap();
-        assert!(json.contains(r#""kind":"array","style":"boxes","values":[1.0,2.5]"#), "{json}");
-        let hex: Panel =
-            serde_json::from_str(r##"{"name":"h","kind":"hex","states":[{"name":"e","color":"#000000"}]}"##)
-                .unwrap();
+        assert!(
+            json.contains(r#""kind":"array","style":"boxes","values":[1.0,2.5]"#),
+            "{json}"
+        );
+        let hex: Panel = serde_json::from_str(
+            r##"{"name":"h","kind":"hex","states":[{"name":"e","color":"#000000"}]}"##,
+        )
+        .unwrap();
         assert_eq!(
             hex.kind,
             PanelKind::Hex {

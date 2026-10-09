@@ -14,9 +14,11 @@ pub fn bundle(input: &str, output: Option<&str>) -> Result<(), String> {
     #[cfg(not(web_bundle))]
     {
         let _ = (input, output);
-        return Err("this celluloid was built without the web viewer; run `cargo xtask web` \
+        return Err(
+            "this celluloid was built without the web viewer; run `cargo xtask web` \
                     in the celluloid repository, then reinstall"
-            .into());
+                .into(),
+        );
     }
     #[cfg(web_bundle)]
     {
@@ -25,11 +27,18 @@ pub fn bundle(input: &str, output: Option<&str>) -> Result<(), String> {
         let compact = serde_json::to_string(&animation).map_err(|e| e.to_string())?;
         let output = match output {
             Some(o) => o.to_string(),
-            None => Path::new(input).with_extension("html").display().to_string(),
+            None => Path::new(input)
+                .with_extension("html")
+                .display()
+                .to_string(),
         };
         let html = page(&animation.name, &compact, GLUE, WASM);
         std::fs::write(&output, &html).map_err(|e| format!("{output}: {e}"))?;
-        println!("{output}: {} frames, {} KB", animation.frames.len(), html.len() / 1024);
+        println!(
+            "{output}: {} frames, {} KB",
+            animation.frames.len(),
+            html.len() / 1024
+        );
         Ok(())
     }
 }
@@ -74,7 +83,9 @@ fn page(title: &str, json: &str, glue: &str, wasm: &[u8]) -> String {
 }
 
 fn escape_html(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 #[cfg(test)]
@@ -83,7 +94,12 @@ mod tests {
 
     #[test]
     fn page_keeps_json_inside_its_script() {
-        let html = page("a <b>", r#"{"name":"</script><script>x"}"#, "/*glue*/", &[0, 1, 2]);
+        let html = page(
+            "a <b>",
+            r#"{"name":"</script><script>x"}"#,
+            "/*glue*/",
+            &[0, 1, 2],
+        );
         assert!(html.contains("<title>a &lt;b&gt;</title>"));
         assert!(html.contains(r#"{"name":"<\/script><script>x"}"#));
         assert_eq!(html.matches("</script>").count(), 2);

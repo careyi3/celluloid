@@ -1,6 +1,6 @@
 [package]
 name = "celluloid-web"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Web build of the Celluloid viewer, for embedding in a page"
 license = "MIT"

@@ -84,7 +84,13 @@ impl Canvas {
     /// from the edges. Pinch or ctrl+scroll zooms around the pointer;
     /// scroll and drag pan; double-click resets. With `horizontal`, only
     /// `world`'s width is fitted and zooming and panning are sideways only.
-    pub fn begin(ui: &mut Ui, view: &mut PanelView, world: Rect, margin: f32, horizontal: bool) -> Self {
+    pub fn begin(
+        ui: &mut Ui,
+        view: &mut PanelView,
+        world: Rect,
+        margin: f32,
+        horizontal: bool,
+    ) -> Self {
         let (response, painter) = ui.allocate_painter(ui.available_size(), Sense::click_and_drag());
         let rect = response.rect;
         let painter = painter.with_clip_rect(rect);
@@ -99,7 +105,11 @@ impl Canvas {
         }
         .max(1e-3);
 
-        let mask = if horizontal { Vec2::X } else { Vec2::splat(1.0) };
+        let mask = if horizontal {
+            Vec2::X
+        } else {
+            Vec2::splat(1.0)
+        };
         if response.hovered() {
             let (scroll, zoom_delta) = ui.input(|i| (i.smooth_scroll_delta(), i.zoom_delta()));
             if let Some(pointer) = response.hover_pos() {
@@ -150,7 +160,11 @@ impl Canvas {
         }
         self.response.on_hover_ui_at_pointer(|ui| {
             ui.label(RichText::new(describe(f.panel, at)).monospace().strong());
-            if let Some(def) = f.cur.state_at(at).and_then(|s| f.panel.states.get(s as usize)) {
+            if let Some(def) = f
+                .cur
+                .state_at(at)
+                .and_then(|s| f.panel.states.get(s as usize))
+            {
                 ui.horizontal(|ui| {
                     theme::swatch(ui, color32(def.color));
                     ui.label(&def.name);

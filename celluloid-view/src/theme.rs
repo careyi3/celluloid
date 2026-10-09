@@ -8,6 +8,7 @@ pub const BOOKMARK: Color32 = Color32::from_rgb(0xed, 0xc9, 0x48);
 pub const CHANGED: Color32 = Color32::from_rgb(0xff, 0xff, 0xff);
 pub const MUTED: Color32 = Color32::from_rgb(0x8b, 0x90, 0x9a);
 
+/// Use the viewer's dark theme for the whole app.
 pub fn apply(ctx: &egui::Context) {
     ctx.set_theme(egui::Theme::Dark);
     ctx.all_styles_mut(|style| {

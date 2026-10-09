@@ -64,7 +64,9 @@ pub fn extent(animation: &Animation, p: usize) -> Rect {
             Op::Set { panel, cells, .. } if *panel as usize == p => cells.iter().for_each(&mut add),
             Op::Label { panel, at, .. } if *panel as usize == p => add(at),
             Op::Marker {
-                panel, at: Some(at), ..
+                panel,
+                at: Some(at),
+                ..
             } if *panel as usize == p => add(at),
             _ => {}
         }
@@ -89,7 +91,11 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, extent: Rect) {
     let c = Canvas::begin(ui, view, extent, 12.0, false);
     let colors = state_colors(f.panel);
     let radius = c.scale;
-    let gap = if radius >= 6.0 { (radius * 0.08).clamp(1.0, 2.0) } else { 0.0 };
+    let gap = if radius >= 6.0 {
+        (radius * 0.08).clamp(1.0, 2.0)
+    } else {
+        0.0
+    };
     let drawn = radius - gap / 2.0;
     let seen = c.visible().intersect(extent);
 
@@ -97,14 +103,22 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, extent: Rect) {
     if radius >= 3.0 && seen.is_positive() {
         let scaled = |r: Rangef, k: f32| Rangef::new(r.min * k, r.max * k);
         let (rows, cols) = match o {
-            Orientation::Pointy => (scaled(seen.y_range(), 1.0 / 1.5), scaled(seen.x_range(), 1.0 / SQRT3)),
-            Orientation::Flat => (scaled(seen.x_range(), 1.0 / 1.5), scaled(seen.y_range(), 1.0 / SQRT3)),
+            Orientation::Pointy => (
+                scaled(seen.y_range(), 1.0 / 1.5),
+                scaled(seen.x_range(), 1.0 / SQRT3),
+            ),
+            Orientation::Flat => (
+                scaled(seen.x_range(), 1.0 / 1.5),
+                scaled(seen.y_range(), 1.0 / SQRT3),
+            ),
         };
         let estimate = (rows.span() + 3.0) * (cols.span() + 3.0);
         if estimate < MAX_LATTICE as f32 {
             for a in rows.min.floor() as i32 - 1..=rows.max.ceil() as i32 + 1 {
                 let shift = a as f32 / 2.0;
-                for b in (cols.min - shift).floor() as i32 - 1..=(cols.max - shift).ceil() as i32 + 1 {
+                for b in
+                    (cols.min - shift).floor() as i32 - 1..=(cols.max - shift).ceil() as i32 + 1
+                {
                     let cell = match o {
                         Orientation::Pointy => [b, a],
                         Orientation::Flat => [a, b],

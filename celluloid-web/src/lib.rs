@@ -2,7 +2,7 @@
 //!
 //! Build it with `cargo xtask web`, which writes `celluloid_web.js` and
 //! `celluloid_web_bg.wasm` to `celluloid/web/`. Serve those two files and
-//! start a [`Player`] on a canvas:
+//! start a `Player` on a canvas:
 //!
 //! ```js
 //! import init, { Player } from "./celluloid_web.js";
@@ -67,7 +67,11 @@ impl eframe::App for WebApp {
 
         if let Some(error) = &self.error {
             egui::Panel::top("error")
-                .frame(egui::Frame::new().fill(egui::Color32::from_rgb(0x5c, 0x1f, 0x24)).inner_margin(8))
+                .frame(
+                    egui::Frame::new()
+                        .fill(egui::Color32::from_rgb(0x5c, 0x1f, 0x24))
+                        .inner_margin(8),
+                )
                 .show(ui, |ui| {
                     ui.label(RichText::new(error).color(egui::Color32::WHITE));
                 });
@@ -121,14 +125,17 @@ impl Player {
 
     /// Show an animation, given the contents of its JSON file.
     pub fn load(&self, json: &str) -> Result<(), JsValue> {
-        self.with(|app| app.load(json))?.map_err(|e| JsValue::from_str(&e))
+        self.with(|app| app.load(json))?
+            .map_err(|e| JsValue::from_str(&e))
     }
 
+    /// Start playback.
     pub fn play(&self) -> Result<(), JsValue> {
         self.with(|app| app.viewer.as_mut().map(|v| v.set_playing(true)))
             .map(drop)
     }
 
+    /// Pause playback.
     pub fn pause(&self) -> Result<(), JsValue> {
         self.with(|app| app.viewer.as_mut().map(|v| v.set_playing(false)))
             .map(drop)

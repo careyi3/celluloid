@@ -84,7 +84,11 @@ pub fn record() -> Recorder {
     dirs.sort();
     let mut total_small = 0;
     for (dir, size) in dirs {
-        let name = dir.trim_end_matches('/').rsplit('/').next().filter(|n| !n.is_empty());
+        let name = dir
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .filter(|n| !n.is_empty());
         rec.label(t, &dir, format!("{} {size}", name.unwrap_or("/")));
         if size <= 100_000 {
             rec.set(t, &dir, "small");

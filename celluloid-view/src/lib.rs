@@ -1,8 +1,20 @@
-//! egui viewer for Celluloid animations.
+//! The egui viewer behind [Celluloid](https://github.com/careyi3/celluloid).
 //!
-//! [`Viewer`] plays one animation and can be embedded in any egui app,
-//! native or web. With the `native` feature (on by default), [`App`] wraps
-//! it with a folder browser and live reload for the desktop.
+//! [`Viewer`] plays one animation inside any egui app, native or web. The
+//! `native` feature is on by default and adds `App` and `run`, the desktop
+//! viewer with a file browser and live reload.
+//!
+//! ```no_run
+//! use celluloid_view::Viewer;
+//!
+//! # fn demo(ui: &mut eframe::egui::Ui) -> Result<(), Box<dyn std::error::Error>> {
+//! let json = std::fs::read_to_string("day12.json")?;
+//! let mut viewer = Viewer::new(celluloid_core::from_json(&json)?);
+//!
+//! viewer.ui(ui);
+//! # Ok(())
+//! # }
+//! ```
 
 mod array;
 mod canvas;

@@ -42,10 +42,9 @@ pub struct Scene<'a> {
 
 /// Bounding box of the nodes that exist, in world space.
 pub fn bounds(positions: &Positions) -> Rect {
-    positions
-        .iter()
-        .flatten()
-        .fold(Rect::NOTHING, |r, &p| r.union(Rect::from_center_size(p, Vec2::ZERO)))
+    positions.iter().flatten().fold(Rect::NOTHING, |r, &p| {
+        r.union(Rect::from_center_size(p, Vec2::ZERO))
+    })
 }
 
 pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
@@ -94,7 +93,8 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
         }
         .gamma_multiply(alpha);
         let width = if e.state == 0 { 1.5 } else { 2.5 };
-        c.painter.line_segment([from, to], Stroke::new(width, color));
+        c.painter
+            .line_segment([from, to], Stroke::new(width, color));
         if s.directed {
             let size = (r * 0.5).clamp(5.0, 12.0);
             let back = to - dir * size;
@@ -111,7 +111,11 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
     };
     for e in &s.edges {
         let old = before.get(&key(e.a, e.b));
-        let alpha = if s.prev.is_some() && old.is_none() { t } else { 1.0 };
+        let alpha = if s.prev.is_some() && old.is_none() {
+            t
+        } else {
+            1.0
+        };
         draw_edge(e, alpha, old.map(|o| o.state));
     }
     if s.prev.is_some() {
@@ -124,10 +128,14 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
     if r >= 6.0 {
         let font = FontId::proportional((r * 0.7).clamp(9.0, 13.0));
         for (p, text, alpha) in labels {
-            let galley = c.painter.layout_no_wrap(text, font.clone(), Color32::from_gray(0xd0));
+            let galley = c
+                .painter
+                .layout_no_wrap(text, font.clone(), Color32::from_gray(0xd0));
             let rect = Rect::from_center_size(p, galley.size() + vec2(6.0, 2.0));
-            c.painter.rect_filled(rect, 3.0, theme::CANVAS.gamma_multiply(alpha));
-            c.painter.galley(rect.min + vec2(3.0, 1.0), galley, Color32::from_gray(0xd0));
+            c.painter
+                .rect_filled(rect, 3.0, theme::CANVAS.gamma_multiply(alpha));
+            c.painter
+                .galley(rect.min + vec2(3.0, 1.0), galley, Color32::from_gray(0xd0));
         }
     }
 
@@ -147,9 +155,13 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
             continue;
         };
         let cur = s.states.get(n as usize).copied().unwrap_or(0);
-        let prev = s.prev_states.as_ref().and_then(|ps| ps.get(n as usize).copied());
+        let prev = s
+            .prev_states
+            .as_ref()
+            .and_then(|ps| ps.get(n as usize).copied());
         let fill = canvas::tweened(&colors, prev, cur, t).gamma_multiply(alpha);
-        c.painter.circle(p, r, fill, Stroke::new(1.5, theme::CANVAS));
+        c.painter
+            .circle(p, r, fill, Stroke::new(1.5, theme::CANVAS));
         if f.outline_changes && f.changed.contains(At::Index(n)) && s.cur[n as usize].is_some() {
             let stroke = Stroke::new(1.5, theme::CHANGED.gamma_multiply(1.0 - 0.5 * t));
             c.painter.circle_stroke(p, r + 3.0, stroke);
@@ -157,7 +169,13 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
         if names_fit {
             if let Some(def) = s.nodes.get(n as usize) {
                 let color = theme::text_on(fill).gamma_multiply(alpha);
-                c.painter.text(p, Align2::CENTER_CENTER, &def.name, name_font.clone(), color);
+                c.painter.text(
+                    p,
+                    Align2::CENTER_CENTER,
+                    &def.name,
+                    name_font.clone(),
+                    color,
+                );
             }
         }
         if r >= 6.0 {
@@ -182,7 +200,12 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
         let angle = (-45.0f32 + 50.0 * *k as f32).to_radians();
         *k += 1;
         let offset = vec2(angle.cos(), angle.sin()) * r * 1.05;
-        let screen = |n: u32, pos: &Positions| pos.get(n as usize).copied().flatten().map(|w| c.to_screen(w) + offset);
+        let screen = |n: u32, pos: &Positions| {
+            pos.get(n as usize)
+                .copied()
+                .flatten()
+                .map(|w| c.to_screen(w) + offset)
+        };
         let Some(to) = screen(node, s.cur) else {
             continue;
         };
@@ -201,7 +224,8 @@ pub fn paint(c: Canvas, f: &PanelFrame, s: &Scene) {
             .min_by(|a, b| a.1.total_cmp(&b.1));
         if let Some((n, _)) = hit {
             let (p, _) = at(n).unwrap();
-            c.painter.circle_stroke(p, r + 1.5, Stroke::new(1.5, Color32::WHITE));
+            c.painter
+                .circle_stroke(p, r + 1.5, Stroke::new(1.5, Color32::WHITE));
             c.tooltip(f, At::Index(n), &[]);
         }
     }

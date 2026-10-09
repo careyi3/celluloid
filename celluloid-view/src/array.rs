@@ -68,15 +68,26 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, info: ArrayInfo) {
 
     let slots = info.max_len.max(1) as f32;
     let width = slots.max((ui.available_width() - 32.0) / MAX_SLOT);
-    let world = Rect::from_x_y_ranges(slots / 2.0 - width / 2.0..=slots / 2.0 + width / 2.0, 0.0..=1.0);
+    let world = Rect::from_x_y_ranges(
+        slots / 2.0 - width / 2.0..=slots / 2.0 + width / 2.0,
+        0.0..=1.0,
+    );
     let c = Canvas::begin(ui, view, world, 16.0, true);
     let slot = c.scale;
-    let gap = if slot >= 6.0 { (slot * 0.12).clamp(1.0, 6.0) } else { 0.0 };
+    let gap = if slot >= 6.0 {
+        (slot * 0.12).clamp(1.0, 6.0)
+    } else {
+        0.0
+    };
     let left = |i: f32| c.to_screen(pos2(i, 0.0)).x;
 
     let roomy = slot >= 14.0;
     let label_band = if roomy { 18.0 } else { 0.0 };
-    let value_band = if roomy && style == ArrayStyle::Bars { 16.0 } else { 0.0 };
+    let value_band = if roomy && style == ArrayStyle::Bars {
+        16.0
+    } else {
+        0.0
+    };
     let index_band = if roomy { 16.0 } else { 0.0 };
     let pointer_band = f.panel.markers.len().min(3) as f32 * POINTER_ROW;
     let top = c.rect.top() + 10.0 + label_band + value_band;
@@ -109,7 +120,13 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, info: ArrayInfo) {
     let colors = state_colors(f.panel);
     let radius = if slot >= 12.0 { 3.0 } else { 0.0 };
     let before: HashMap<u32, (usize, &Item)> = prev
-        .map(|p| p.items.iter().enumerate().map(|(i, it)| (it.id, (i, it))).collect())
+        .map(|p| {
+            p.items
+                .iter()
+                .enumerate()
+                .map(|(i, it)| (it.id, (i, it)))
+                .collect()
+        })
         .unwrap_or_default();
 
     if style == ArrayStyle::Bars && info.lo < 0.0 {
@@ -124,7 +141,11 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, info: ArrayInfo) {
         for (i, it) in p.items.iter().enumerate() {
             if !now.contains(&it.id) {
                 let color = canvas::state_color(&colors, it.state).gamma_multiply(1.0 - f.t);
-                c.painter.rect_filled(item_rect(i as f32, it.value).shrink(f.t * 4.0), radius, color);
+                c.painter.rect_filled(
+                    item_rect(i as f32, it.value).shrink(f.t * 4.0),
+                    radius,
+                    color,
+                );
             }
         }
     }
@@ -155,8 +176,15 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, info: ArrayInfo) {
         };
         let mut r = item_rect(x, value);
         if moved && style == ArrayStyle::Boxes {
-            let dir = if old.is_some_and(|&(j, _)| j < i) { -1.0 } else { 1.0 };
-            r = r.translate(vec2(0.0, dir * (f.t * std::f32::consts::PI).sin() * box_size * 0.6));
+            let dir = if old.is_some_and(|&(j, _)| j < i) {
+                -1.0
+            } else {
+                1.0
+            };
+            r = r.translate(vec2(
+                0.0,
+                dir * (f.t * std::f32::consts::PI).sin() * box_size * 0.6,
+            ));
         }
         let color = canvas::tweened(&colors, old.map(|(_, o)| o.state), it.state, f.t)
             .gamma_multiply(alpha);
@@ -235,7 +263,11 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, info: ArrayInfo) {
         let cx = left(x + 0.5);
         let color = color32(def.color).gamma_multiply(alpha);
         c.painter.add(Shape::convex_polygon(
-            vec![pos2(cx, y), pos2(cx + 6.0, y + 10.0), pos2(cx - 6.0, y + 10.0)],
+            vec![
+                pos2(cx, y),
+                pos2(cx + 6.0, y + 10.0),
+                pos2(cx - 6.0, y + 10.0),
+            ],
             color,
             Stroke::NONE,
         ));
@@ -254,8 +286,17 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, info: ArrayInfo) {
             let i = i as usize;
             let it = &cur.items[i];
             let r = item_rect(i as f32, it.value);
-            c.painter.rect_stroke(r, radius, Stroke::new(1.5, Color32::WHITE), StrokeKind::Outside);
-            c.tooltip(&f, At::Index(i as u32), &[format!("value: {}", fmt_value(it.value))]);
+            c.painter.rect_stroke(
+                r,
+                radius,
+                Stroke::new(1.5, Color32::WHITE),
+                StrokeKind::Outside,
+            );
+            c.tooltip(
+                &f,
+                At::Index(i as u32),
+                &[format!("value: {}", fmt_value(it.value))],
+            );
         }
     }
 }

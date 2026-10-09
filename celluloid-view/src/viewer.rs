@@ -11,8 +11,8 @@ use std::collections::HashSet;
 const SPEEDS: [f32; 11] = [0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0];
 const NORMAL_SPEED: usize = 3;
 
-/// Plays one animation: panels, transport controls and an inspector.
-/// Knows nothing about files, so it can be embedded anywhere egui runs.
+/// Plays one animation with transport controls and an inspector. Give it
+/// an [`Animation`] and call [`Viewer::ui`] every frame.
 pub struct Viewer {
     timeline: Timeline,
     views: Vec<PanelView>,
@@ -70,8 +70,13 @@ struct FrameCache {
 }
 
 impl Viewer {
+    /// Start on frame 0, paused.
     pub fn new(animation: Animation) -> Self {
-        let views = animation.panels.iter().map(|_| PanelView::default()).collect();
+        let views = animation
+            .panels
+            .iter()
+            .map(|_| PanelView::default())
+            .collect();
         Self {
             layouts: PanelLayout::all(&animation),
             timeline: Timeline::new(animation),
@@ -91,7 +96,11 @@ impl Viewer {
     pub fn replace(&mut self, animation: Animation) {
         let cursor = self.timeline.cursor();
         if animation.panels.len() != self.views.len() {
-            self.views = animation.panels.iter().map(|_| PanelView::default()).collect();
+            self.views = animation
+                .panels
+                .iter()
+                .map(|_| PanelView::default())
+                .collect();
         }
         self.views.iter_mut().for_each(PanelView::invalidate);
         self.layouts = PanelLayout::all(&animation);
@@ -104,10 +113,12 @@ impl Viewer {
         }
     }
 
+    /// The animation being played.
     pub fn animation(&self) -> &Animation {
         self.timeline.animation()
     }
 
+    /// The frame on screen, counting from 0.
     pub fn cursor(&self) -> usize {
         self.timeline.cursor()
     }
@@ -117,14 +128,17 @@ impl Viewer {
         self.timeline.len()
     }
 
+    /// Jump to a frame, counting from 0.
     pub fn seek(&mut self, frame: usize) {
         self.go_to(frame, 0.0, false);
     }
 
+    /// Whether playback is running.
     pub fn is_playing(&self) -> bool {
         self.playing
     }
 
+    /// Play or pause. Playing from the last frame starts again from 0.
     pub fn set_playing(&mut self, playing: bool) {
         if playing && self.at_end() {
             self.seek(0);
@@ -237,6 +251,7 @@ impl Viewer {
         }
     }
 
+    /// Draw the viewer into the rest of `ui`. Call this every frame.
     pub fn ui(&mut self, ui: &mut Ui) {
         let now = ui.input(|i| i.time);
         self.handle_keys(ui, now);
@@ -249,7 +264,10 @@ impl Viewer {
 
         if self.show_controls {
             egui::Panel::bottom("transport")
-                .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin::symmetric(12, 8)))
+                .frame(
+                    egui::Frame::side_top_panel(ui.style())
+                        .inner_margin(egui::Margin::symmetric(12, 8)),
+                )
                 .show(ui, |ui| self.transport_ui(ui, now));
             egui::Panel::right("inspector")
                 .default_size(260.0)
@@ -403,10 +421,18 @@ impl Viewer {
             let cursor = self.timeline.cursor();
             let big = |s: &str| RichText::new(s).size(16.0);
 
-            if ui.button(big("⏮")).on_hover_text("First frame (Home)").clicked() {
+            if ui
+                .button(big("⏮"))
+                .on_hover_text("First frame (Home)")
+                .clicked()
+            {
                 self.seek(0);
             }
-            if ui.button(big("⏴").size(12.0)).on_hover_text("Step back (←)").clicked() {
+            if ui
+                .button(big("⏴").size(12.0))
+                .on_hover_text("Step back (←)")
+                .clicked()
+            {
                 self.seek(cursor.saturating_sub(1));
             }
             let play = if self.playing { "⏸" } else { "⏵" };
@@ -416,17 +442,24 @@ impl Viewer {
             if ui.add(play).on_hover_text("Play / pause (Space)").clicked() {
                 self.set_playing(!self.playing);
             }
-            if ui.button(big("⏵").size(12.0)).on_hover_text("Step forward (→)").clicked() {
+            if ui
+                .button(big("⏵").size(12.0))
+                .on_hover_text("Step forward (→)")
+                .clicked()
+            {
                 self.go_to(cursor + 1, now, true);
             }
-            if ui.button(big("⏭")).on_hover_text("Last frame (End)").clicked() {
+            if ui
+                .button(big("⏭"))
+                .on_hover_text("Last frame (End)")
+                .clicked()
+            {
                 self.seek(self.last());
             }
 
             ui.separator();
             ui.label(
-                RichText::new(format!("{} / {}", cursor + 1, self.timeline.len()))
-                    .monospace(),
+                RichText::new(format!("{} / {}", cursor + 1, self.timeline.len())).monospace(),
             );
             ui.separator();
 
@@ -467,7 +500,10 @@ impl Viewer {
         for (i, _) in &marks {
             let x = x_of(*i);
             painter.line_segment(
-                [egui::pos2(x, rect.top() + 3.0), egui::pos2(x, rect.bottom() - 3.0)],
+                [
+                    egui::pos2(x, rect.top() + 3.0),
+                    egui::pos2(x, rect.bottom() - 3.0),
+                ],
                 Stroke::new(2.0, theme::BOOKMARK),
             );
         }
@@ -478,7 +514,8 @@ impl Viewer {
             Stroke::new(2.0, theme::ACCENT),
         );
 
-        let frame_at = |x: f32| (((x - track.left()) / track.width()).clamp(0.0, 1.0) * last).round() as usize;
+        let frame_at =
+            |x: f32| (((x - track.left()) / track.width()).clamp(0.0, 1.0) * last).round() as usize;
         if response.clicked() || response.dragged() {
             if let Some(p) = response.interact_pointer_pos() {
                 self.go_to(frame_at(p.x), now, false);
@@ -521,17 +558,20 @@ impl Viewer {
 
             if !state.vars.is_empty() {
                 section(ui, "Variables");
-                egui::Grid::new("vars").num_columns(2).striped(true).show(ui, |ui| {
-                    for (name, value) in &state.vars {
-                        ui.label(RichText::new(name).color(theme::MUTED));
-                        let mut text = RichText::new(value).monospace();
-                        if cache.changed_vars.contains(name) {
-                            text = text.color(theme::ACCENT);
+                egui::Grid::new("vars")
+                    .num_columns(2)
+                    .striped(true)
+                    .show(ui, |ui| {
+                        for (name, value) in &state.vars {
+                            ui.label(RichText::new(name).color(theme::MUTED));
+                            let mut text = RichText::new(value).monospace();
+                            if cache.changed_vars.contains(name) {
+                                text = text.color(theme::ACCENT);
+                            }
+                            ui.add(egui::Label::new(text).wrap());
+                            ui.end_row();
                         }
-                        ui.add(egui::Label::new(text).wrap());
-                        ui.end_row();
-                    }
-                });
+                    });
             }
 
             for (i, panel) in animation.panels.iter().enumerate() {
@@ -543,9 +583,11 @@ impl Viewer {
                         ui.label(&def.name);
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             ui.label(
-                                RichText::new(cache.counts[i][s].map_or("–".into(), |c| c.to_string()))
-                                    .monospace()
-                                    .color(theme::MUTED),
+                                RichText::new(
+                                    cache.counts[i][s].map_or("–".into(), |c| c.to_string()),
+                                )
+                                .monospace()
+                                .color(theme::MUTED),
                             );
                         });
                     });
@@ -610,7 +652,12 @@ impl Viewer {
 
 fn section(ui: &mut Ui, title: &str) {
     ui.add_space(10.0);
-    ui.label(RichText::new(title.to_uppercase()).small().strong().color(theme::MUTED));
+    ui.label(
+        RichText::new(title.to_uppercase())
+            .small()
+            .strong()
+            .color(theme::MUTED),
+    );
     ui.separator();
 }
 
@@ -618,7 +665,10 @@ fn section(ui: &mut Ui, title: &str) {
 /// arrays in strips underneath (or sharing the space if there's nothing else).
 fn arrange(full: Rect, layouts: &[PanelLayout]) -> Vec<Rect> {
     const GAP: f32 = 12.0;
-    let strips = layouts.iter().filter(|l| matches!(l, PanelLayout::Array(_))).count();
+    let strips = layouts
+        .iter()
+        .filter(|l| matches!(l, PanelLayout::Array(_)))
+        .count();
     let areas = layouts.len() - strips;
     let strip_h = if areas == 0 {
         (full.height() - GAP * strips.saturating_sub(1) as f32) / strips.max(1) as f32
@@ -728,15 +778,29 @@ mod tests {
     fn array_changes_follow_shifts() {
         let mut changed = Changed::Some(HashSet::new());
         let ops = [
-            Op::Value { panel: 0, at: 2, value: 1.0 },
-            Op::Insert { panel: 0, at: 0, value: 1.0 },
-            Op::Move { panel: 0, from: 3, to: 1 },
+            Op::Value {
+                panel: 0,
+                at: 2,
+                value: 1.0,
+            },
+            Op::Insert {
+                panel: 0,
+                at: 0,
+                value: 1.0,
+            },
+            Op::Move {
+                panel: 0,
+                from: 3,
+                to: 1,
+            },
             Op::Remove { panel: 0, at: 0 },
         ];
         for op in &ops {
             note_change(&mut changed, op);
         }
-        let Changed::Some(set) = changed else { panic!() };
+        let Changed::Some(set) = changed else {
+            panic!()
+        };
         assert_eq!(set, HashSet::from([At::Index(0)]));
     }
 }

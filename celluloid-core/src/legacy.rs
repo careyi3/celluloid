@@ -5,6 +5,7 @@ use crate::{Animation, Recorder};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// A whole 0.0.1 file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AnimationData {
     pub name: String,
@@ -15,12 +16,14 @@ pub struct AnimationData {
     pub frames: Vec<Frame>,
 }
 
+/// Size of the grid.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GridConfig {
     pub width: usize,
     pub height: usize,
 }
 
+/// Playback settings.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Metadata {
     #[serde(default)]
@@ -31,6 +34,7 @@ pub struct Metadata {
     pub frame_delay_ms: f64,
 }
 
+/// The whole grid at one step.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Frame {
     #[serde(default)]
@@ -53,6 +57,7 @@ const STATES: [(&str, &str); 6] = [
 ];
 const HIGHLIGHT: (&str, &str) = ("highlight", "#ffff00");
 
+/// Turn an old file into the current format.
 pub fn convert(old: &AnimationData) -> Animation {
     let (width, height) = (old.grid_config.width, old.grid_config.height);
 
@@ -70,7 +75,10 @@ pub fn convert(old: &AnimationData) -> Animation {
                 return HIGHLIGHT.0;
             }
             let value = frame.grid.get(y).and_then(|row| row.get(x)).copied();
-            STATES.get(value.unwrap_or(0) as usize).unwrap_or(&STATES[0]).0
+            STATES
+                .get(value.unwrap_or(0) as usize)
+                .unwrap_or(&STATES[0])
+                .0
         });
         rec.frame(frame.message.clone());
     }
@@ -100,16 +108,32 @@ mod tests {
         assert_eq!(anim.created_at, "2025-12-01T00:00:00Z");
         assert_eq!(anim.frames[1].message, "b");
 
-        let names: Vec<_> = anim.panels[0].states.iter().map(|s| s.name.as_str()).collect();
+        let names: Vec<_> = anim.panels[0]
+            .states
+            .iter()
+            .map(|s| s.name.as_str())
+            .collect();
         assert_eq!(
             names,
-            ["empty", "obstacle", "start", "end", "visited", "path", "highlight"]
+            [
+                "empty",
+                "obstacle",
+                "start",
+                "end",
+                "visited",
+                "path",
+                "highlight"
+            ]
         );
 
         let mut tl = Timeline::new(anim);
-        let PanelState::Grid(g) = &tl.seek(0).panels[0] else { panic!() };
+        let PanelState::Grid(g) = &tl.seek(0).panels[0] else {
+            panic!()
+        };
         assert_eq!(g.cells, vec![0, 1, 2, 3, 4, 5]);
-        let PanelState::Grid(g) = &tl.seek(1).panels[0] else { panic!() };
+        let PanelState::Grid(g) = &tl.seek(1).panels[0] else {
+            panic!()
+        };
         assert_eq!(g.cells, vec![6, 1, 2, 3, 4, 0]);
     }
 }

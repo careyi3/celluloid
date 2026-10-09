@@ -40,13 +40,25 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
     let visible = xs.len() * ys.len();
 
     let colors = state_colors(f.panel);
-    let gap = if cell >= 6.0 { (cell * 0.08).clamp(1.0, 2.0) } else { 0.0 };
-    let radius = if cell >= 14.0 { (cell * 0.12).min(4.0) } else { 0.0 };
+    let gap = if cell >= 6.0 {
+        (cell * 0.08).clamp(1.0, 2.0)
+    } else {
+        0.0
+    };
+    let radius = if cell >= 14.0 {
+        (cell * 0.12).min(4.0)
+    } else {
+        0.0
+    };
 
     if visible > MAX_RECT_CELLS {
         let stale = !matches!(&view.texture, Some((c, _)) if *c == f.cursor);
         if stale {
-            let pixels = cur.cells.iter().map(|&s| canvas::state_color(&colors, s)).collect();
+            let pixels = cur
+                .cells
+                .iter()
+                .map(|&s| canvas::state_color(&colors, s))
+                .collect();
             let image = ColorImage::new([width as usize, height as usize], pixels);
             match &mut view.texture {
                 Some((frame, tex)) => {
@@ -54,7 +66,9 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
                     *frame = f.cursor;
                 }
                 None => {
-                    let tex = ui.ctx().load_texture("grid", image, TextureOptions::NEAREST);
+                    let tex = ui
+                        .ctx()
+                        .load_texture("grid", image, TextureOptions::NEAREST);
                     view.texture = Some((f.cursor, tex));
                 }
             }
@@ -70,8 +84,13 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
             for x in xs.clone() {
                 let i = (y * width + x) as usize;
                 let s = cur.cells[i];
-                let color = canvas::tweened(&colors, prev.and_then(|p| p.cells.get(i).copied()), s, f.t);
-                shapes.push(Shape::rect_filled(cell_rect(x, y).shrink(gap / 2.0), radius, color));
+                let color =
+                    canvas::tweened(&colors, prev.and_then(|p| p.cells.get(i).copied()), s, f.t);
+                shapes.push(Shape::rect_filled(
+                    cell_rect(x, y).shrink(gap / 2.0),
+                    radius,
+                    color,
+                ));
             }
         }
         c.painter.extend(shapes);

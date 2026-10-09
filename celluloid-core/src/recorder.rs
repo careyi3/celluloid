@@ -84,6 +84,7 @@ impl Handle for Graph {
 /// A position: `(x, y)` or `[x, y]` with any integer type. Used for grid
 /// cells and axial `(q, r)` hex cells.
 pub trait Pos {
+    /// The position as `(x, y)`.
     fn xy(self) -> (i64, i64);
 }
 
@@ -146,6 +147,7 @@ impl<P: Pos> Target<Hex> for P {
 
 /// A number stored in an array.
 pub trait Number: Copy {
+    /// The value as `f64`.
     fn to_f64(self) -> f64;
 }
 
@@ -219,6 +221,7 @@ pub struct Recorder {
 }
 
 impl Recorder {
+    /// Start a recording. `name` is shown as its title.
     pub fn new(name: impl Into<String>) -> Self {
         let animation = Animation {
             format: FORMAT_VERSION,
@@ -275,8 +278,8 @@ impl Recorder {
         Array(self.add_panel(name.into(), kind, "default", ARRAY_DEFAULT))
     }
 
-    /// Draw an array as equal boxes with values written inside, instead
-    /// of bars. Better when the values are ids or letters rather than sizes.
+    /// Draw an array as boxes with the values written inside. Good for ids
+    /// or letters where bar heights mean nothing.
     pub fn array_style(&mut self, array: Array, style: ArrayStyle) -> &mut Self {
         if let PanelKind::Array { style: s, .. } = &mut self.panel_mut(array).kind {
             *s = style;
@@ -403,6 +406,7 @@ impl Recorder {
         self.set_label(panel, at, Some(text.to_string()));
     }
 
+    /// Remove an element's label.
     pub fn clear_label<H: Handle>(&mut self, panel: H, at: impl Target<H>) {
         self.set_label(panel, at, None);
     }
@@ -424,6 +428,7 @@ impl Recorder {
         self.set_marker(panel, name, Some(at));
     }
 
+    /// Hide a marker until it's moved again.
     pub fn hide_marker<H: Handle>(&mut self, panel: H, name: &str) {
         self.set_marker(panel, name, None);
     }
@@ -512,10 +517,7 @@ impl Recorder {
     /// Remove the item at `index`.
     pub fn remove(&mut self, array: Array, index: impl Target<Array>) {
         let at = self.index(array, index, false);
-        self.emit(Op::Remove {
-            panel: array.0,
-            at,
-        });
+        self.emit(Op::Remove { panel: array.0, at });
     }
 
     /// Remove the last item, if there is one.
@@ -580,7 +582,9 @@ impl Recorder {
     /// Append `child` after `parent`'s existing children.
     pub fn add_child(&mut self, tree: Tree, parent: impl Display, child: impl Display) {
         let parent_ix = self.ensure_node(tree.0, &parent.to_string());
-        let slot = self.tree_state(tree).nodes[parent_ix as usize].children.len();
+        let slot = self.tree_state(tree).nodes[parent_ix as usize]
+            .children
+            .len();
         self.child(tree, parent, slot, child);
     }
 
@@ -634,6 +638,7 @@ impl Recorder {
         self.ensure_edge(graph, a, b);
     }
 
+    /// Remove the edge between two nodes.
     pub fn remove_edge(&mut self, graph: Graph, a: impl Display, b: impl Display) {
         let (a, b) = (
             self.node_index(graph.0, &a.to_string()),
@@ -666,7 +671,10 @@ impl Recorder {
         };
         self.shadow.apply(&op);
         if let Some(Op::EdgeSet {
-            panel, state, edges, ..
+            panel,
+            state,
+            edges,
+            ..
         }) = self.pending.ops.last_mut()
         {
             if *panel == graph.0 && *state == s {
@@ -678,14 +686,25 @@ impl Recorder {
     }
 
     /// Show text on an edge, such as its weight. Adds the edge if needed.
-    pub fn edge_label(&mut self, graph: Graph, a: impl Display, b: impl Display, text: impl Display) {
+    pub fn edge_label(
+        &mut self,
+        graph: Graph,
+        a: impl Display,
+        b: impl Display,
+        text: impl Display,
+    ) {
         let (a, b) = (
             self.ensure_node(graph.0, &a.to_string()),
             self.ensure_node(graph.0, &b.to_string()),
         );
         self.ensure_edge(graph, a, b);
         let text = Some(text.to_string());
-        if self.graph_state(graph).edge(a, b).and_then(|e| e.label.as_ref()) != text.as_ref() {
+        if self
+            .graph_state(graph)
+            .edge(a, b)
+            .and_then(|e| e.label.as_ref())
+            != text.as_ref()
+        {
             self.emit(Op::EdgeLabel {
                 panel: graph.0,
                 a,
@@ -718,6 +737,7 @@ impl Recorder {
         });
     }
 
+    /// Stop showing a var.
     pub fn remove_var(&mut self, name: &str) {
         if self.shadow.var(name).is_none() {
             return;
@@ -898,7 +918,10 @@ const ARRAY_DEFAULT: Color = Color::rgb(0x6b, 0x72, 0x80);
 
 fn finite(n: impl Number) -> f64 {
     let v = n.to_f64();
-    assert!(v.is_finite(), "celluloid: array values must be finite, got {v}");
+    assert!(
+        v.is_finite(),
+        "celluloid: array values must be finite, got {v}"
+    );
     v
 }
 
@@ -1015,7 +1038,11 @@ mod tests {
         rec.frame("");
         rec.fill(h, "empty");
         let anim = rec.finish();
-        assert_eq!(anim.frames[1].ops.len(), 1, "setting an empty cell empty is a no-op");
+        assert_eq!(
+            anim.frames[1].ops.len(),
+            1,
+            "setting an empty cell empty is a no-op"
+        );
         assert_eq!(anim.validate(), Ok(()));
 
         let mut tl = Timeline::new(anim);
@@ -1049,9 +1076,13 @@ mod tests {
         let anim = rec.finish();
         assert_eq!(anim.validate(), Ok(()));
         let ops = &anim.frames[0].ops;
-        assert!(!ops.iter().any(|op| matches!(op, Op::Swap { a: 1, b: 1, .. })));
+        assert!(!ops
+            .iter()
+            .any(|op| matches!(op, Op::Swap { a: 1, b: 1, .. })));
         assert_eq!(
-            ops.iter().filter(|op| matches!(op, Op::Value { .. })).count(),
+            ops.iter()
+                .filter(|op| matches!(op, Op::Value { .. }))
+                .count(),
             1,
             "setting a value to itself is a no-op"
         );
@@ -1096,7 +1127,13 @@ mod tests {
         assert!(anim.frames[2].ops.is_empty());
 
         let names = |anim: &Animation| -> Vec<String> {
-            anim.panels[0].kind.nodes().unwrap().iter().map(|n| n.name.clone()).collect()
+            anim.panels[0]
+                .kind
+                .nodes()
+                .unwrap()
+                .iter()
+                .map(|n| n.name.clone())
+                .collect()
         };
         assert_eq!(names(&anim), ["1", "2", "3"]);
 
@@ -1106,7 +1143,11 @@ mod tests {
         assert_eq!(after.roots().collect::<Vec<_>>(), vec![1]);
         assert_eq!(after.nodes[1].children, vec![Some(0), Some(2)]);
         assert_eq!(after.nodes[0].parent, Some((1, 0)));
-        assert_eq!(after.nodes[0].children, vec![None, None], "1 lost its right child");
+        assert_eq!(
+            after.nodes[0].children,
+            vec![None, None],
+            "1 lost its right child"
+        );
     }
 
     #[test]
@@ -1126,7 +1167,11 @@ mod tests {
         assert_eq!(anim.validate(), Ok(()));
 
         let moved = tree_of(&anim, 1);
-        assert_eq!(moved.roots().collect::<Vec<_>>(), vec![1], "a is the new root");
+        assert_eq!(
+            moved.roots().collect::<Vec<_>>(),
+            vec![1],
+            "a is the new root"
+        );
         assert_eq!(moved.nodes[3].children, vec![Some(0)]);
         assert_eq!(moved.nodes[0].children, vec![None, Some(2)]);
 

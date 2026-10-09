@@ -9,6 +9,7 @@ pub struct State {
     pub vars: Vec<(String, String)>,
 }
 
+/// What one panel looks like at a frame.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PanelState {
     Grid(GridState),
@@ -37,6 +38,7 @@ impl Node {
     }
 }
 
+/// A tree panel at one frame.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TreeState {
     pub nodes: Vec<Node>,
@@ -97,13 +99,17 @@ impl TreeState {
 
     fn remove(&mut self, node: u32) {
         self.detach(node);
-        for c in std::mem::take(&mut self.nodes[node as usize].children).into_iter().flatten() {
+        for c in std::mem::take(&mut self.nodes[node as usize].children)
+            .into_iter()
+            .flatten()
+        {
             self.nodes[c as usize].parent = None;
         }
         self.nodes[node as usize].reset();
     }
 }
 
+/// A graph panel at one frame.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct GraphState {
     pub directed: bool,
@@ -113,6 +119,7 @@ pub struct GraphState {
     pub markers: Vec<Option<u32>>,
 }
 
+/// A graph edge's state and label.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Edge {
     pub state: u16,
@@ -129,6 +136,7 @@ impl GraphState {
         }
     }
 
+    /// The edge between `a` and `b`, if there is one.
     pub fn edge(&self, a: u32, b: u32) -> Option<&Edge> {
         self.edges.get(&self.key(a, b))
     }
@@ -148,6 +156,7 @@ fn node_ref(nodes: &[Node], at: At) -> Option<&Node> {
     }
 }
 
+/// A grid panel at one frame.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GridState {
     pub width: u32,
@@ -160,6 +169,7 @@ pub struct GridState {
 }
 
 impl GridState {
+    /// State index of a cell, or `None` if it's off the grid.
     pub fn get(&self, [x, y]: [u32; 2]) -> Option<u16> {
         self.index([x, y]).map(|i| self.cells[i])
     }
@@ -189,6 +199,7 @@ pub struct HexState {
 }
 
 impl HexState {
+    /// State index of a cell. Cells never touched are 0.
     pub fn get(&self, at: [i32; 2]) -> u16 {
         self.cells.get(&at).copied().unwrap_or(0)
     }
@@ -202,6 +213,7 @@ impl HexState {
     }
 }
 
+/// An array panel at one frame.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ArrayState {
     pub items: Vec<Item>,
@@ -252,6 +264,7 @@ impl ArrayState {
 }
 
 impl PanelState {
+    /// A panel as it looks before any ops.
     pub fn new(panel: &Panel) -> Self {
         let markers = panel.markers.len();
         match &panel.kind {
@@ -331,6 +344,7 @@ impl PanelState {
         }
     }
 
+    /// Label of the element at `at`, if it has one.
     pub fn label_at(&self, at: At) -> Option<&str> {
         match (self, at) {
             (PanelState::Grid(g), at) => g.cell(at).and_then(|c| g.labels.get(&c)),
@@ -345,11 +359,15 @@ impl PanelState {
         .map(String::as_str)
     }
 
+    /// Where a marker is, or `None` if it's hidden.
     pub fn marker_at(&self, marker: usize) -> Option<At> {
         match self {
-            PanelState::Grid(g) => g.markers.get(marker).copied().flatten().map(|[x, y]| {
-                At::Cell([x as i32, y as i32])
-            }),
+            PanelState::Grid(g) => g
+                .markers
+                .get(marker)
+                .copied()
+                .flatten()
+                .map(|[x, y]| At::Cell([x as i32, y as i32])),
             PanelState::Hex(h) => h.markers.get(marker).copied().flatten().map(At::Cell),
             PanelState::Array(a) => a.markers.get(marker).copied().flatten().map(At::Index),
             PanelState::Tree(t) => t.markers.get(marker).copied().flatten().map(At::Index),
@@ -398,7 +416,14 @@ impl PanelState {
                     set_label(&mut g.labels, c, text);
                 }
             }
-            (PanelState::Hex(h), Op::Label { at: At::Cell(c), text, .. }) => {
+            (
+                PanelState::Hex(h),
+                Op::Label {
+                    at: At::Cell(c),
+                    text,
+                    ..
+                },
+            ) => {
                 set_label(&mut h.labels, *c, text);
             }
             (PanelState::Array(a), Op::Label { at, text, .. }) => {
@@ -463,7 +488,10 @@ impl PanelState {
                         t.remove(*node)
                     }
                     Op::Child {
-                        parent, slot, child, ..
+                        parent,
+                        slot,
+                        child,
+                        ..
                     } => t.set_child(*parent, *slot, *child),
                     _ => {}
                 }),
@@ -569,6 +597,7 @@ impl State {
         }
     }
 
+    /// Current value of a var.
     pub fn var(&self, name: &str) -> Option<&str> {
         self.vars
             .iter()
@@ -613,6 +642,7 @@ const SNAPSHOT_BUDGET: usize = 32 * 1024 * 1024;
 const MIN_INTERVAL: usize = 16;
 
 impl Timeline {
+    /// Replay `animation` once to build snapshots. Starts at frame 0.
     pub fn new(animation: Animation) -> Self {
         let mut state = State::initial(&animation);
         let mut snapshots = Vec::new();
@@ -621,7 +651,12 @@ impl Timeline {
         for (i, frame) in animation.frames.iter().enumerate() {
             frame.ops.iter().for_each(|op| state.apply(op));
             if i % interval == 0 {
-                stored += state.panels.iter().map(PanelState::size).sum::<usize>().max(1);
+                stored += state
+                    .panels
+                    .iter()
+                    .map(PanelState::size)
+                    .sum::<usize>()
+                    .max(1);
                 snapshots.push(state.clone());
                 if stored > SNAPSHOT_BUDGET {
                     snapshots = snapshots.into_iter().step_by(2).collect();
@@ -644,6 +679,7 @@ impl Timeline {
         }
     }
 
+    /// The animation being replayed.
     pub fn animation(&self) -> &Animation {
         &self.animation
     }
@@ -653,6 +689,7 @@ impl Timeline {
         self.animation.frames.len()
     }
 
+    /// Whether there are no frames.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -662,6 +699,7 @@ impl Timeline {
         self.cursor
     }
 
+    /// State at the current frame.
     pub fn state(&self) -> &State {
         &self.current
     }

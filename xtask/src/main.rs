@@ -53,7 +53,9 @@ fn web() -> Result<(), String> {
         .map_err(|e| format!("wasm-bindgen: {e}"))?;
 
     for file in ["celluloid_web.js", "celluloid_web_bg.wasm"] {
-        let size = std::fs::metadata(out.join(file)).map(|m| m.len()).unwrap_or(0);
+        let size = std::fs::metadata(out.join(file))
+            .map(|m| m.len())
+            .unwrap_or(0);
         println!("{:>9} KB  celluloid/web/{file}", size / 1024);
     }
     Ok(())

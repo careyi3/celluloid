@@ -36,7 +36,12 @@ pub fn layout(t: &TreeState) -> Positions {
             return;
         }
         pos[n as usize] = Some(pos2(*x, depth as f32 * ROW));
-        let kids: Vec<u32> = t.nodes[n as usize].children.iter().flatten().copied().collect();
+        let kids: Vec<u32> = t.nodes[n as usize]
+            .children
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
         if kids.is_empty() {
             *x += 1.0;
             return;
@@ -98,8 +103,8 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
     if !target.is_finite() || target == Rect::NOTHING {
         target = Rect::from_center_size(pos2(0.0, 0.0), vec2(1.0, 1.0));
     }
-    let target = Rect::from_center_size(target.center(), target.size().max(vec2(6.0, 4.0)))
-        .expand(0.8);
+    let target =
+        Rect::from_center_size(target.center(), target.size().max(vec2(6.0, 4.0))).expand(0.8);
     let cam = match view.cam {
         Some(cam) => {
             let dt = ui.input(|i| i.stable_dt).min(0.1);
@@ -175,6 +180,10 @@ mod tests {
             rec.add_child(t, "r", "c");
         });
         let pos = layout(&t);
-        assert_eq!(pos[0].unwrap().x, pos[2].unwrap().x, "r over the middle child");
+        assert_eq!(
+            pos[0].unwrap().x,
+            pos[2].unwrap().x,
+            "r over the middle child"
+        );
     }
 }
