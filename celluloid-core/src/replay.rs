@@ -1,4 +1,4 @@
-use crate::{Animation, At, Op, Panel, PanelKind};
+use crate::{Animation, At, Camera, Op, Panel, PanelKind};
 use std::collections::BTreeMap;
 
 /// Everything visible at one frame.
@@ -166,6 +166,8 @@ pub struct GridState {
     pub labels: BTreeMap<[u32; 2], String>,
     /// Indexed like `Panel::markers`; `None` is hidden.
     pub markers: Vec<Option<[u32; 2]>>,
+    /// `None` shows the whole grid.
+    pub camera: Option<Camera>,
 }
 
 impl GridState {
@@ -196,6 +198,8 @@ pub struct HexState {
     pub cells: BTreeMap<[i32; 2], u16>,
     pub labels: BTreeMap<[i32; 2], String>,
     pub markers: Vec<Option<[i32; 2]>>,
+    /// `None` shows every cell the animation touches.
+    pub camera: Option<Camera>,
 }
 
 impl HexState {
@@ -274,6 +278,7 @@ impl PanelState {
                 cells: vec![0; *width as usize * *height as usize],
                 labels: BTreeMap::new(),
                 markers: vec![None; markers],
+                camera: None,
             }),
             PanelKind::Hex { .. } => PanelState::Hex(HexState {
                 markers: vec![None; markers],
@@ -375,8 +380,20 @@ impl PanelState {
         }
     }
 
+    /// Where a grid or hex panel's camera points, if it's been moved.
+    pub fn camera(&self) -> Option<Camera> {
+        match self {
+            PanelState::Grid(g) => g.camera,
+            PanelState::Hex(h) => h.camera,
+            _ => None,
+        }
+    }
+
     fn apply(&mut self, op: &Op) {
         match (self, op) {
+            (PanelState::Grid(g), Op::Camera { view, .. }) => g.camera = *view,
+            (PanelState::Hex(h), Op::Camera { view, .. }) => h.camera = *view,
+
             (PanelState::Grid(g), Op::Set { state, cells, .. }) => {
                 for &at in cells {
                     if let Some(i) = g.cell(at).and_then(|c| g.index(c)) {

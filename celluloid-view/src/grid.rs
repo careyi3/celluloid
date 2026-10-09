@@ -20,7 +20,12 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
     };
     let (width, height) = (cur.width, cur.height);
     let world = Rect::from_min_size(pos2(0.0, 0.0), vec2(width as f32, height as f32));
-    let c = Canvas::begin(ui, view, world, 12.0, false);
+    let camera = cur
+        .camera
+        .filter(|_| f.follow_camera)
+        .map(|cam| (pos2(cam.center[0] + 0.5, cam.center[1] + 0.5), cam.zoom));
+    let shown = canvas::ease_camera(ui, view, canvas::framed(world, camera));
+    let c = Canvas::begin(ui, view, shown, 12.0, false);
     if width == 0 || height == 0 {
         return;
     }

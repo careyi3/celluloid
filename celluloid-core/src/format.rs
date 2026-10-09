@@ -213,6 +213,17 @@ impl fmt::Display for At {
     }
 }
 
+/// Where a grid or hex panel's camera points.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct Camera {
+    /// The cell in the middle of the view: `[x, y]` on grids, axial
+    /// `[q, r]` on hex panels. Fractions fall between cells.
+    pub center: [f32; 2],
+    /// How much closer than fitting the whole panel. 1 shows it all, 4
+    /// shows a quarter of its width.
+    pub zoom: f32,
+}
+
 /// A change applied when a frame is reached. Indices refer to
 /// `Animation::panels` and the panel's `states` / `markers`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -241,6 +252,13 @@ pub enum Op {
         /// `None` hides the marker. On arrays a marker may sit one past
         /// the end, like an exclusive upper bound.
         at: Option<At>,
+    },
+    /// Grids and hex panels: point the camera. The viewer eases to it and
+    /// holds it until the next camera op.
+    Camera {
+        panel: u16,
+        /// `None` goes back to showing the whole panel.
+        view: Option<Camera>,
     },
     /// Set a named value shown beside the animation.
     Var {
@@ -300,6 +318,7 @@ impl Op {
             | Op::Fill { panel, .. }
             | Op::Label { panel, .. }
             | Op::Marker { panel, .. }
+            | Op::Camera { panel, .. }
             | Op::Value { panel, .. }
             | Op::Swap { panel, .. }
             | Op::Insert { panel, .. }
@@ -422,6 +441,25 @@ impl Animation {
                     return Err(format!("unknown marker {marker} in panel {name:?}"));
                 }
                 a.map_or(Ok(()), |a| at(a, *len, 1))
+            }
+            Op::Camera { view, .. } => {
+                if !matches!(panel.kind, PanelKind::Grid { .. } | PanelKind::Hex { .. }) {
+                    return Err(format!(
+                        "camera only applies to grids and hex panels, not {name:?}"
+                    ));
+                }
+                match view {
+                    Some(Camera { center, zoom })
+                        if !center.iter().all(|c| c.is_finite())
+                            || !zoom.is_finite()
+                            || *zoom <= 0.0 =>
+                    {
+                        Err(format!(
+                            "camera in {name:?} needs a finite centre and a positive zoom"
+                        ))
+                    }
+                    _ => Ok(()),
+                }
             }
             Op::Value { at: i, value, .. } => {
                 array_only("value")?;
@@ -599,6 +637,30 @@ mod tests {
         )
         .validate()
         .is_ok());
+    }
+
+    #[test]
+    fn validate_checks_cameras() {
+        let camera = |zoom| Op::Camera {
+            panel: 0,
+            view: Some(Camera {
+                center: [1.0, 1.0],
+                zoom,
+            }),
+        };
+        let grid = PanelKind::Grid {
+            width: 2,
+            height: 2,
+        };
+        assert_eq!(
+            animation(grid.clone(), vec![camera(2.0)]).validate(),
+            Ok(())
+        );
+        let err = animation(grid, vec![camera(0.0)]).validate().unwrap_err();
+        assert!(err.0.contains("positive zoom"), "{err}");
+        let tree = PanelKind::Tree { nodes: vec![] };
+        let err = animation(tree, vec![camera(2.0)]).validate().unwrap_err();
+        assert!(err.0.contains("only applies to grids and hex"), "{err}");
     }
 
     #[test]

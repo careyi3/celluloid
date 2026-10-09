@@ -31,7 +31,8 @@ const MAZE: &[&str] = &[
     "#####################",
 ];
 
-fn bfs(with_queue: bool) -> Animation {
+/// With `zoom`, the camera follows the search that much closer.
+fn bfs(with_queue: bool, zoom: Option<f32>) -> Animation {
     let grid: Vec<Vec<u8>> = MAZE.iter().map(|r| r.bytes().collect()).collect();
     let (w, h) = (grid[0].len(), grid.len());
     let find = |c| {
@@ -69,6 +70,9 @@ fn bfs(with_queue: bool) -> Animation {
         }
         rec.set(g, (x, y), "seen");
         rec.marker(g, "me", (x, y));
+        if let Some(zoom) = zoom {
+            rec.camera(g, (x, y), zoom);
+        }
         if (x, y) != start && (x, y) != end {
             rec.label(g, (x, y), dist[y][x]);
         }
@@ -183,7 +187,8 @@ fn quicksort() -> Animation {
     rec.finish()
 }
 
-fn hex_life() -> Animation {
+/// With `zoom`, the camera looks closer at the middle of the board.
+fn hex_life(zoom: Option<f32>) -> Animation {
     use celluloid_core::{hex, Orientation};
     use std::collections::{HashMap, HashSet};
 
@@ -192,6 +197,9 @@ fn hex_life() -> Animation {
     let h = rec.hex("board", Orientation::Pointy);
     rec.state(h, "alive", "#76b7b2");
     rec.state(h, "born", "#edc948");
+    if let Some(zoom) = zoom {
+        rec.camera(h, (1, -1), zoom);
+    }
     let mut alive: HashSet<(i64, i64)> = [
         (0, 0),
         (1, 0),
@@ -232,18 +240,23 @@ fn hex_life() -> Animation {
 #[test]
 #[ignore = "needs a GPU; run explicitly to refresh the screenshots"]
 fn screenshots() {
-    let animation = bfs(false);
+    let animation = bfs(false, None);
     let frame = animation.frames.len() * 2 / 3;
     render("viewer", animation, frame, egui::pos2(420.0, 330.0));
 
-    let animation = bfs(true);
+    let animation = bfs(false, Some(3.0));
+    let frame = animation.frames.len() * 2 / 3;
+    render("camera-grid", animation, frame, egui::pos2(0.0, 0.0));
+
+    let animation = bfs(true, None);
     let frame = animation.frames.len() / 2;
     render("mixed", animation, frame, egui::pos2(600.0, 640.0));
 
     let animation = quicksort();
     render("sort", animation, 40, egui::pos2(500.0, 300.0));
 
-    render("hex", hex_life(), 12, egui::pos2(640.0, 380.0));
+    render("hex", hex_life(None), 12, egui::pos2(640.0, 380.0));
+    render("camera-hex", hex_life(Some(2.5)), 12, egui::pos2(0.0, 0.0));
 
     let animation = quicksort();
     let before_swap = (1..animation.frames.len())

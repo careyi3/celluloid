@@ -1,4 +1,4 @@
-use crate::canvas::{Canvas, PanelFrame, PanelView};
+use crate::canvas::{self, Canvas, PanelFrame, PanelView};
 use crate::nodes::{self, EdgeView, Positions, Scene};
 use celluloid_core::{PanelState, TreeState};
 use eframe::egui::{pos2, vec2, Rect, Ui};
@@ -105,21 +105,7 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
     }
     let target =
         Rect::from_center_size(target.center(), target.size().max(vec2(6.0, 4.0))).expand(0.8);
-    let cam = match view.cam {
-        Some(cam) => {
-            let dt = ui.input(|i| i.stable_dt).min(0.1);
-            let k = 1.0 - (-dt * 8.0).exp();
-            let next = Rect::from_min_max(cam.min.lerp(target.min, k), cam.max.lerp(target.max, k));
-            if (next.min - target.min).length() + (next.max - target.max).length() > 0.01 {
-                ui.ctx().request_repaint();
-                next
-            } else {
-                target
-            }
-        }
-        None => target,
-    };
-    view.cam = Some(cam);
+    let cam = canvas::ease_camera(ui, view, target);
 
     let c = Canvas::begin(ui, view, cam, 16.0, false);
     let states = |t: &TreeState| t.nodes.iter().map(|n| n.state).collect::<Vec<_>>();

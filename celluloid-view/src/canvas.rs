@@ -67,6 +67,38 @@ pub struct PanelFrame<'a> {
     pub cursor: usize,
     pub changed: &'a Changed,
     pub outline_changes: bool,
+    /// Whether grids and hex panels follow their recorded camera.
+    pub follow_camera: bool,
+}
+
+/// Glide the world area `view` shows towards `target`, returning the area
+/// to show this frame.
+pub fn ease_camera(ui: &Ui, view: &mut PanelView, target: Rect) -> Rect {
+    let cam = match view.cam {
+        Some(cam) => {
+            let dt = ui.input(|i| i.stable_dt).min(0.1);
+            let k = 1.0 - (-dt * 8.0).exp();
+            let next = Rect::from_min_max(cam.min.lerp(target.min, k), cam.max.lerp(target.max, k));
+            if (next.min - target.min).length() + (next.max - target.max).length() > 0.01 {
+                ui.ctx().request_repaint();
+                next
+            } else {
+                target
+            }
+        }
+        None => target,
+    };
+    view.cam = Some(cam);
+    cam
+}
+
+/// The part of `world` a recorded camera frames: centred on world point
+/// `center`, `zoom` times closer than the whole of it.
+pub fn framed(world: Rect, camera: Option<(Pos2, f32)>) -> Rect {
+    match camera {
+        Some((center, zoom)) => Rect::from_center_size(center, world.size() / zoom),
+        None => world,
+    }
 }
 
 /// A panel's drawing area, mapping world coordinates (cells, hex units,

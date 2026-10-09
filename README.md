@@ -46,6 +46,8 @@ rec.save("day12.json")?;
 | Tree | `rec.tree(name)` | node name |
 | Graph | `rec.graph(name, directed)` | node name |
 
+Grids and hex panels have a camera: `rec.camera(g, (x, y), 3.0)` eases the view to that cell at 3× zoom, and `rec.reset_camera(g)` shows the whole panel again. Call it each frame to follow something.
+
 There are runnable examples in [`celluloid-core/examples`](celluloid-core/examples):
 
 ```bash

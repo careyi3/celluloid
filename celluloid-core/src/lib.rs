@@ -35,11 +35,11 @@ mod replay;
 
 pub use color::Color;
 pub use format::{
-    Animation, ArrayStyle, At, Frame, MarkerDef, NodeDef, Op, Orientation, Panel, PanelKind,
-    StateDef, FORMAT_VERSION,
+    Animation, ArrayStyle, At, Camera, Frame, MarkerDef, NodeDef, Op, Orientation, Panel,
+    PanelKind, StateDef, FORMAT_VERSION,
 };
 pub use recorder::{
-    Array, Graph, Grid, Handle, Hex, NodePanel, Number, Pos, Recorder, Target, Tree,
+    Array, CellPanel, Graph, Grid, Handle, Hex, NodePanel, Number, Pos, Recorder, Target, Tree,
 };
 pub use replay::{
     ArrayState, Edge, GraphState, GridState, HexState, Item, Node, PanelState, State, Timeline,

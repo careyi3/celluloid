@@ -25,6 +25,9 @@ pub struct Viewer {
     tween: Option<Tween>,
     cache: Option<FrameCache>,
     outline_changes: bool,
+    follow_camera: bool,
+    /// Whether any grid or hex panel has a recorded camera to follow.
+    has_camera: bool,
     /// Show the transport bar and inspector. Off leaves just the panels,
     /// for hosts that drive playback themselves.
     pub show_controls: bool,
@@ -77,6 +80,7 @@ impl Viewer {
             .iter()
             .map(|_| PanelView::default())
             .collect();
+        let has_camera = has_camera(&animation);
         Self {
             layouts: PanelLayout::all(&animation),
             timeline: Timeline::new(animation),
@@ -87,6 +91,8 @@ impl Viewer {
             tween: None,
             cache: None,
             outline_changes: true,
+            follow_camera: true,
+            has_camera,
             show_controls: true,
         }
     }
@@ -104,6 +110,7 @@ impl Viewer {
         }
         self.views.iter_mut().for_each(PanelView::invalidate);
         self.layouts = PanelLayout::all(&animation);
+        self.has_camera = has_camera(&animation);
         self.timeline = Timeline::new(animation);
         self.timeline.seek(cursor);
         self.tween = None;
@@ -326,6 +333,7 @@ impl Viewer {
                 Key::Plus,
                 Key::Num0,
                 Key::O,
+                Key::C,
             ]
             .into_iter()
             .filter(|&k| i.key_pressed(k))
@@ -355,6 +363,7 @@ impl Viewer {
                 Key::Equals | Key::Plus => self.speed = (self.speed + 1).min(SPEEDS.len() - 1),
                 Key::Num0 => self.views.iter_mut().for_each(PanelView::reset),
                 Key::O => self.outline_changes = !self.outline_changes,
+                Key::C => self.follow_camera = !self.follow_camera,
                 _ => {}
             }
         }
@@ -373,6 +382,7 @@ impl Viewer {
         let cache = self.cache.as_ref().unwrap();
         let cursor = self.timeline.cursor();
         let outline_changes = self.outline_changes;
+        let follow_camera = self.follow_camera;
         let tween = self.tween.as_ref();
 
         let full = ui.available_rect_before_wrap();
@@ -402,6 +412,7 @@ impl Viewer {
                 cursor,
                 changed: &cache.changed[i],
                 outline_changes,
+                follow_camera,
             };
             match layout {
                 PanelLayout::Grid => grid::show(&mut ui, view, f),
@@ -628,6 +639,9 @@ impl Viewer {
 
         section(ui, "View");
         ui.checkbox(&mut self.outline_changes, "Outline what changed (O)");
+        if self.has_camera {
+            ui.checkbox(&mut self.follow_camera, "Follow recorded camera (C)");
+        }
         ui.collapsing("Shortcuts", |ui| {
             egui::Grid::new("keys").num_columns(2).show(ui, |ui| {
                 for (k, what) in [
@@ -637,6 +651,7 @@ impl Viewer {
                     ("[ ]", "previous / next bookmark"),
                     ("- =", "slower / faster"),
                     ("0", "reset zoom"),
+                    ("C", "follow recorded camera"),
                     ("pinch, ctrl+scroll", "zoom"),
                     ("drag, scroll", "pan"),
                     ("double-click", "reset zoom"),
@@ -648,6 +663,14 @@ impl Viewer {
             });
         });
     }
+}
+
+fn has_camera(animation: &Animation) -> bool {
+    animation
+        .frames
+        .iter()
+        .flat_map(|f| &f.ops)
+        .any(|op| matches!(op, Op::Camera { .. }))
 }
 
 fn section(ui: &mut Ui, title: &str) {
@@ -759,6 +782,7 @@ fn note_change(changed: &mut Changed, op: &Op) {
         }
         Op::Label { .. }
         | Op::Marker { .. }
+        | Op::Camera { .. }
         | Op::Var { .. }
         | Op::AddNode { .. }
         | Op::RemoveNode { .. }

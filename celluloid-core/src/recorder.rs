@@ -1,7 +1,7 @@
 use crate::color::{EMPTY, PALETTE};
 use crate::format::default_frame_delay;
 use crate::{
-    Animation, ArrayStyle, At, Color, Frame, MarkerDef, Op, Orientation, Panel, PanelKind,
+    Animation, ArrayStyle, At, Camera, Color, Frame, MarkerDef, Op, Orientation, Panel, PanelKind,
     PanelState, State, StateDef, FORMAT_VERSION,
 };
 use std::collections::HashMap;
@@ -34,6 +34,12 @@ pub struct Graph(u16);
 pub trait NodePanel: Handle {}
 impl NodePanel for Tree {}
 impl NodePanel for Graph {}
+
+/// A grid or hex handle. Their cameras can be pointed with
+/// [`Recorder::camera`].
+pub trait CellPanel: Handle {}
+impl CellPanel for Grid {}
+impl CellPanel for Hex {}
 
 /// Any panel handle. Methods like [`Recorder::set`] and
 /// [`Recorder::marker`] work on every kind of panel.
@@ -452,6 +458,40 @@ impl Recorder {
             marker: m,
             at,
         });
+    }
+
+    /// Centre the viewer's camera on a cell, `zoom` times closer than
+    /// fitting the whole panel. The camera eases there and stays until
+    /// moved again; call it every frame with a marker's cell to follow it.
+    /// Anyone watching can still pan and zoom on top.
+    pub fn camera<H: CellPanel>(&mut self, panel: H, center: impl Target<H>, zoom: f32) {
+        assert!(
+            zoom.is_finite() && zoom > 0.0,
+            "celluloid: camera zoom must be positive, got {zoom}"
+        );
+        let p = panel.panel();
+        let At::Cell([x, y]) = self.resolve(p, center.target(), false) else {
+            unreachable!("cell panels take cells")
+        };
+        self.set_camera(
+            p,
+            Some(Camera {
+                center: [x as f32, y as f32],
+                zoom,
+            }),
+        );
+    }
+
+    /// Go back to showing the whole panel.
+    pub fn reset_camera<H: CellPanel>(&mut self, panel: H) {
+        self.set_camera(panel.panel(), None);
+    }
+
+    fn set_camera(&mut self, p: u16, view: Option<Camera>) {
+        if self.shadow.panels[p as usize].camera() == view {
+            return;
+        }
+        self.emit(Op::Camera { panel: p, view });
     }
 
     /// Set every cell to whatever `state_at(x, y)` returns. Handy when your
@@ -1022,6 +1062,51 @@ mod tests {
         assert_eq!(grid.get([4, 2]), Some(1));
         assert_eq!(grid.markers, vec![None]);
         assert_eq!(s.var("i"), None);
+    }
+
+    #[test]
+    fn camera_holds_until_moved() {
+        let mut rec = Recorder::new("t");
+        let g = rec.grid("g", 8, 8);
+        let h = rec.hex("h", Orientation::Flat);
+        rec.camera(g, (2, 3), 4.0);
+        rec.camera(h, (-5, 1), 2.0);
+        rec.frame("");
+        rec.camera(g, (2, 3), 4.0);
+        rec.frame("");
+        rec.reset_camera(g);
+        rec.reset_camera(g);
+        let anim = rec.finish();
+        assert_eq!(anim.frames[0].ops.len(), 2);
+        assert!(anim.frames[1].ops.is_empty(), "same camera is a no-op");
+        assert_eq!(anim.frames[2].ops.len(), 1);
+        assert_eq!(anim.validate(), Ok(()));
+
+        let json = serde_json::to_string(&anim.frames[0].ops[0]).unwrap();
+        assert_eq!(
+            json,
+            r#"{"op":"camera","panel":0,"view":{"center":[2.0,3.0],"zoom":4.0}}"#
+        );
+
+        let mut tl = Timeline::new(anim);
+        let camera = Some(Camera {
+            center: [2.0, 3.0],
+            zoom: 4.0,
+        });
+        assert_eq!(tl.seek(1).panels[0].camera(), camera);
+        assert_eq!(
+            tl.state().panels[1].camera().map(|c| c.center),
+            Some([-5.0, 1.0])
+        );
+        assert_eq!(tl.seek(2).panels[0].camera(), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "outside the 8x8 grid")]
+    fn camera_must_be_on_the_grid() {
+        let mut rec = Recorder::new("t");
+        let g = rec.grid("g", 8, 8);
+        rec.camera(g, (8, 0), 2.0);
     }
 
     #[test]

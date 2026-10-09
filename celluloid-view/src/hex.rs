@@ -10,7 +10,11 @@ const MAX_LATTICE: usize = 60_000;
 
 /// Centre of axial cell `[q, r]` for hexagons of circumradius 1.
 fn center(o: Orientation, [q, r]: [i32; 2]) -> Pos2 {
-    let (q, r) = (q as f32, r as f32);
+    point(o, [q as f32, r as f32])
+}
+
+/// World position of fractional axial coordinates.
+fn point(o: Orientation, [q, r]: [f32; 2]) -> Pos2 {
     match o {
         Orientation::Pointy => pos2(SQRT3 * (q + r / 2.0), 1.5 * r),
         Orientation::Flat => pos2(1.5 * q, SQRT3 * (r + q / 2.0)),
@@ -88,7 +92,12 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame, extent: Rect) {
     let PanelKind::Hex { orientation: o } = f.panel.kind else {
         return;
     };
-    let c = Canvas::begin(ui, view, extent, 12.0, false);
+    let camera = cur
+        .camera
+        .filter(|_| f.follow_camera)
+        .map(|cam| (point(o, cam.center), cam.zoom));
+    let shown = canvas::ease_camera(ui, view, canvas::framed(extent, camera));
+    let c = Canvas::begin(ui, view, shown, 12.0, false);
     let colors = state_colors(f.panel);
     let radius = c.scale;
     let gap = if radius >= 6.0 {
