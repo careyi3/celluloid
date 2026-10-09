@@ -2,7 +2,6 @@
 //! animation, to open in a browser or share.
 
 use base64::Engine;
-use std::path::Path;
 
 #[cfg(web_bundle)]
 const GLUE: &str = include_str!("../web/celluloid_web.js");
@@ -10,41 +9,41 @@ const GLUE: &str = include_str!("../web/celluloid_web.js");
 const WASM: &[u8] = include_bytes!("../web/celluloid_web_bg.wasm");
 
 /// Write `output` (default: `input` with an `.html` extension).
+#[cfg(web_bundle)]
 pub fn bundle(input: &str, output: Option<&str>) -> Result<(), String> {
-    #[cfg(not(web_bundle))]
-    {
-        let _ = (input, output);
-        return Err(
-            "this celluloid was built without the web viewer; run `cargo xtask web` \
-                    in the celluloid repository, then reinstall"
-                .into(),
-        );
-    }
-    #[cfg(web_bundle)]
-    {
-        let json = std::fs::read_to_string(input).map_err(|e| format!("{input}: {e}"))?;
-        let animation = celluloid_core::from_json(&json).map_err(|e| format!("{input}: {e}"))?;
-        let compact = serde_json::to_string(&animation).map_err(|e| e.to_string())?;
-        let output = match output {
-            Some(o) => o.to_string(),
-            None => Path::new(input)
-                .with_extension("html")
-                .display()
-                .to_string(),
-        };
-        let html = page(&animation.name, &compact, GLUE, WASM);
-        std::fs::write(&output, &html).map_err(|e| format!("{output}: {e}"))?;
-        println!(
-            "{output}: {} frames, {} KB",
-            animation.frames.len(),
-            html.len() / 1024
-        );
-        Ok(())
-    }
+    let json = std::fs::read_to_string(input).map_err(|e| format!("{input}: {e}"))?;
+    let animation = celluloid_core::from_json(&json).map_err(|e| format!("{input}: {e}"))?;
+    let compact = serde_json::to_string(&animation).map_err(|e| e.to_string())?;
+    let output = match output {
+        Some(o) => o.to_string(),
+        None => std::path::Path::new(input)
+            .with_extension("html")
+            .display()
+            .to_string(),
+    };
+    let html = page(&animation.name, &compact, GLUE, WASM);
+    std::fs::write(&output, &html).map_err(|e| format!("{output}: {e}"))?;
+    println!(
+        "{output}: {} frames, {} KB",
+        animation.frames.len(),
+        html.len() / 1024
+    );
+    Ok(())
+}
+
+/// Without the web viewer built in, explain how to get it.
+#[cfg(not(web_bundle))]
+pub fn bundle(_input: &str, _output: Option<&str>) -> Result<(), String> {
+    Err(
+        "this celluloid was built without the web viewer; run `cargo xtask web` \
+         in the celluloid repository, then reinstall"
+            .into(),
+    )
 }
 
 /// The page: a full-window canvas, the animation as inline JSON, and the
 /// generated glue with the wasm inlined as base64.
+#[cfg_attr(not(web_bundle), allow(dead_code))]
 fn page(title: &str, json: &str, glue: &str, wasm: &[u8]) -> String {
     let wasm = base64::engine::general_purpose::STANDARD.encode(wasm);
     let mut html = String::with_capacity(wasm.len() + glue.len() + json.len() + 1024);
@@ -82,6 +81,7 @@ fn page(title: &str, json: &str, glue: &str, wasm: &[u8]) -> String {
     html
 }
 
+#[cfg_attr(not(web_bundle), allow(dead_code))]
 fn escape_html(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
