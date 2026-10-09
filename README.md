@@ -1,6 +1,6 @@
 # Celluloid
 
-Record what your Rust puzzle solution does, then scrub through it.
+Rust visualisation tool and library for algorithmic problem solving.
 
 Add a few calls to your code and it writes a small JSON file. Open that in the viewer and step through it frame by frame, forwards and backwards. Built for Advent of Code style grids and graphs, but anything you can draw as a grid, array, tree or graph works.
 
