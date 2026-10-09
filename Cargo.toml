@@ -3,8 +3,8 @@ members = ["celluloid-core", "celluloid-view", "celluloid-web", "celluloid", "xt
 resolver = "2"
 
 [workspace.dependencies]
-celluloid-core = { path = "celluloid-core", version = "0.1.1" }
-celluloid-view = { path = "celluloid-view", version = "0.1.1", default-features = false }
+celluloid-core = { path = "celluloid-core", version = "0.1.2" }
+celluloid-view = { path = "celluloid-view", version = "0.1.2", default-features = false }
 eframe = { version = "0.36", default-features = false, features = ["default_fonts"] }
 
 [profile.wasm]
