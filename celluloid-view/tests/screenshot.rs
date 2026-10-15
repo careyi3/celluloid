@@ -14,6 +14,8 @@ mod avl;
 mod dijkstra;
 #[path = "../../celluloid-core/examples/filesystem.rs"]
 mod filesystem;
+#[path = "../../celluloid-core/examples/marching_squares.rs"]
+mod marching_squares;
 
 const MAZE: &[&str] = &[
     "#####################",
@@ -305,4 +307,21 @@ fn screenshots() {
     let fs = filesystem::record().finish();
     let last = fs.frames.len() - 1;
     render("filesystem", fs, last, egui::pos2(0.0, 0.0));
+
+    let contour = marching_squares::record().finish();
+    let traced = contour.bookmarks().next().unwrap().0;
+    render(
+        "lines-scan",
+        contour.clone(),
+        traced * 3 / 5,
+        egui::pos2(420.0, 330.0),
+    );
+    let drifting = contour.bookmarks().nth(1).unwrap().0;
+    render_with(
+        "lines-drift",
+        contour,
+        drifting + 30,
+        egui::pos2(0.0, 0.0),
+        true,
+    );
 }

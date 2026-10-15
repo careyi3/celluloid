@@ -48,6 +48,16 @@ rec.save("day12.json")?;
 
 Grids and hex panels have a camera: `rec.camera(g, (x, y), 3.0)` eases the view to that cell at 3× zoom, and `rec.reset_camera(g)` shows the whole panel again. Call it each frame to follow something.
 
+Grids can also have lines and notes drawn over them. Points are `(x, y)` in cells, with whole numbers at cell centres, so `(2.5, 3)` is on the edge between `(2, 3)` and `(3, 3)` and `(-0.5, -0.5)` is the top left corner:
+
+```rust
+rec.line(g, (0.5, 0.0), (1.0, 0.5), "contour");      // a straight line
+rec.path(g, [(0, 0), (3, 0), (3, 2)], "route");     // joined-up lines
+rec.line_color(g, "route", "#e15759");
+rec.note(g, (0.5, 0.5), "11");                      // small text anywhere
+rec.clear_lines(g, "contour");                       // or erase_line, clear_all_lines
+```
+
 There are runnable examples in [`celluloid-core/examples`](celluloid-core/examples):
 
 ```bash

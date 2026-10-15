@@ -35,15 +35,16 @@ mod replay;
 
 pub use color::Color;
 pub use format::{
-    Animation, ArrayStyle, At, Camera, Frame, MarkerDef, NodeDef, Op, Orientation, Panel,
-    PanelKind, StateDef, FORMAT_VERSION,
+    Animation, ArrayStyle, At, Camera, Frame, LineDef, MarkerDef, NodeDef, Op, Orientation, Panel,
+    PanelKind, Point, StateDef, FORMAT_VERSION,
 };
 pub use recorder::{
-    Array, CellPanel, Graph, Grid, Handle, Hex, NodePanel, Number, Pos, Recorder, Target, Tree,
+    Array, CellPanel, Graph, Grid, Handle, Hex, IntoPoint, NodePanel, Number, Pos, Recorder,
+    Target, Tree,
 };
 pub use replay::{
-    ArrayState, Edge, GraphState, GridState, HexState, Item, Node, PanelState, State, Timeline,
-    TreeState,
+    ArrayState, Edge, GraphState, GridState, HexState, Item, Line, Node, Note, PanelState, State,
+    Timeline, TreeState,
 };
 
 use std::fmt;

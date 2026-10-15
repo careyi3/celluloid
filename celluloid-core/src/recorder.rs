@@ -1,8 +1,9 @@
 use crate::color::{EMPTY, PALETTE};
 use crate::format::default_frame_delay;
+use crate::format::on_grid;
 use crate::{
-    Animation, ArrayStyle, At, Camera, Color, Frame, MarkerDef, Op, Orientation, Panel, PanelKind,
-    PanelState, State, StateDef, FORMAT_VERSION,
+    Animation, ArrayStyle, At, Camera, Color, Frame, LineDef, MarkerDef, Op, Orientation, Panel,
+    PanelKind, PanelState, Point, State, StateDef, FORMAT_VERSION,
 };
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -109,6 +110,27 @@ impl<T: TryInto<i64>> Pos for [T; 2] {
 
 fn to_i64<T: TryInto<i64>>(v: T) -> i64 {
     v.try_into().unwrap_or(i64::MAX)
+}
+
+/// A point on a grid: `(x, y)` or `[x, y]` in cells, with any number
+/// type. Whole numbers are cell centres, so `(2.5, 3)` is on the edge
+/// between cells `(2, 3)` and `(3, 3)`. See [`Point`].
+pub trait IntoPoint {
+    /// The point as `[x, y]`.
+    fn point(self) -> Point;
+}
+
+impl<A: Number, B: Number> IntoPoint for (A, B) {
+    fn point(self) -> Point {
+        [self.0.to_f64() as f32, self.1.to_f64() as f32]
+    }
+}
+
+impl<T: Number> IntoPoint for [T; 2] {
+    fn point(self) -> Point {
+        let [x, y] = self;
+        [x.to_f64() as f32, y.to_f64() as f32]
+    }
 }
 
 /// Something that picks out an element of a panel of kind `H`: a
@@ -323,6 +345,7 @@ impl Recorder {
                 color,
             }],
             markers: Vec::new(),
+            lines: Vec::new(),
         };
         self.shadow.panels.push(PanelState::new(&panel));
         self.animation.panels.push(panel);
@@ -510,6 +533,140 @@ impl Recorder {
                 self.set(grid, (x, y), state_at(x, y).as_ref());
             }
         }
+    }
+
+    /// Set a line style's colour (`"#rrggbb"`). Styles you draw in
+    /// without defining get a colour from a built-in palette.
+    pub fn line_color(&mut self, grid: Grid, style: &str, color: &str) -> &mut Self {
+        let color = parse_color(color);
+        let i = self.line_index(grid, style);
+        self.panel_mut(grid).lines[i as usize].color = color;
+        self
+    }
+
+    /// Draw a straight line between two points on a grid (see
+    /// [`IntoPoint`]): along cell edges, between cell centres, or anywhere
+    /// in between. Lines stay until erased; drawing over one changes its
+    /// style.
+    pub fn line(&mut self, grid: Grid, from: impl IntoPoint, to: impl IntoPoint, style: &str) {
+        let s = self.line_index(grid, style);
+        let line = [self.point(grid, from), self.point(grid, to)];
+        if self
+            .grid_state(grid)
+            .line(line[0], line[1])
+            .map(|l| l.style)
+            == Some(s)
+        {
+            return;
+        }
+        let op = Op::Line {
+            panel: grid.0,
+            style: Some(s),
+            lines: vec![line],
+        };
+        self.shadow.apply(&op);
+        if let Some(Op::Line {
+            panel,
+            style: Some(ls),
+            lines,
+        }) = self.pending.ops.last_mut()
+        {
+            if *panel == grid.0 && *ls == s {
+                lines.push(line);
+                return;
+            }
+        }
+        self.pending.ops.push(op);
+    }
+
+    /// Draw lines joining each point to the next.
+    pub fn path<P: IntoPoint>(
+        &mut self,
+        grid: Grid,
+        points: impl IntoIterator<Item = P>,
+        style: &str,
+    ) {
+        let mut points = points.into_iter().map(IntoPoint::point);
+        let Some(mut from) = points.next() else {
+            return;
+        };
+        for to in points {
+            self.line(grid, from, to, style);
+            from = to;
+        }
+    }
+
+    /// Erase the line between two points, drawn either way round.
+    pub fn erase_line(&mut self, grid: Grid, a: impl IntoPoint, b: impl IntoPoint) {
+        let line = [self.point(grid, a), self.point(grid, b)];
+        if self.grid_state(grid).line(line[0], line[1]).is_none() {
+            return;
+        }
+        self.emit(Op::Line {
+            panel: grid.0,
+            style: None,
+            lines: vec![line],
+        });
+    }
+
+    /// Erase every line drawn in `style`.
+    pub fn clear_lines(&mut self, grid: Grid, style: &str) {
+        let Some(s) = self
+            .panel_mut(grid)
+            .lines
+            .iter()
+            .position(|l| l.name == style)
+        else {
+            return;
+        };
+        let s = s as u16;
+        if self.grid_state(grid).lines().any(|l| l.style == s) {
+            self.emit(Op::ClearLines {
+                panel: grid.0,
+                style: Some(s),
+            });
+        }
+    }
+
+    /// Erase every line.
+    pub fn clear_all_lines(&mut self, grid: Grid) {
+        if self.grid_state(grid).lines().next().is_some() {
+            self.emit(Op::ClearLines {
+                panel: grid.0,
+                style: None,
+            });
+        }
+    }
+
+    /// Show small text at a point on a grid (see [`IntoPoint`]), such as
+    /// a value at a cell corner. Unlike [`Recorder::label`] it can go
+    /// anywhere, and sits on top of lines.
+    pub fn note(&mut self, grid: Grid, at: impl IntoPoint, text: impl Display) {
+        self.set_note(grid, at, Some(text.to_string()));
+    }
+
+    /// Remove the note at a point.
+    pub fn clear_note(&mut self, grid: Grid, at: impl IntoPoint) {
+        self.set_note(grid, at, None);
+    }
+
+    /// Remove every note.
+    pub fn clear_notes(&mut self, grid: Grid) {
+        if self.grid_state(grid).notes().next().is_some() {
+            self.emit(Op::ClearNotes { panel: grid.0 });
+        }
+    }
+
+    fn set_note(&mut self, grid: Grid, at: impl IntoPoint, text: Option<String>) {
+        let at = self.point(grid, at);
+        if self.grid_state(grid).note(at) == text.as_deref() {
+            return;
+        }
+        self.emit(Op::Note {
+            panel: grid.0,
+            at,
+            text,
+        });
     }
 
     /// Change the value of the item at `index`.
@@ -838,6 +995,32 @@ impl Recorder {
         }
     }
 
+    fn grid_state(&self, grid: Grid) -> &crate::GridState {
+        match &self.shadow.panels[grid.0 as usize] {
+            PanelState::Grid(g) => g,
+            _ => unreachable!("Grid handle on a non-grid panel"),
+        }
+    }
+
+    /// Check a point is on the grid, edges included.
+    fn point(&self, grid: Grid, p: impl IntoPoint) -> Point {
+        let p = p.point();
+        let g = self.grid_state(grid);
+        if !on_grid(p, g.width, g.height) {
+            panic!(
+                "celluloid: point ({}, {}) is off the {}x{} grid {:?}; points go from -0.5 to {} across and {} down",
+                p[0],
+                p[1],
+                g.width,
+                g.height,
+                self.animation.panels[grid.0 as usize].name,
+                g.width as f32 - 0.5,
+                g.height as f32 - 0.5,
+            );
+        }
+        p
+    }
+
     fn tree_state(&self, tree: Tree) -> &crate::TreeState {
         match &self.shadow.panels[tree.0 as usize] {
             PanelState::Tree(t) => t,
@@ -935,6 +1118,19 @@ impl Recorder {
             color,
         });
         u16::try_from(states.len() - 1).expect("too many states")
+    }
+
+    fn line_index(&mut self, grid: Grid, name: &str) -> u16 {
+        let lines = &mut self.panel_mut(grid).lines;
+        if let Some(i) = lines.iter().position(|l| l.name == name) {
+            return i as u16;
+        }
+        let color = PALETTE[(lines.len() + 4) % PALETTE.len()];
+        lines.push(LineDef {
+            name: name.into(),
+            color,
+        });
+        u16::try_from(lines.len() - 1).expect("too many line styles")
     }
 
     fn marker_index<H: Handle>(&mut self, panel: H, name: &str) -> u16 {
@@ -1331,6 +1527,76 @@ mod tests {
             panic!()
         };
         assert_eq!(gs.edges.len(), 2);
+    }
+
+    #[test]
+    fn lines_merge_dedupe_and_replay() {
+        let mut rec = Recorder::new("t");
+        let g = rec.grid("g", 3, 3);
+        rec.line_color(g, "edge", "#ff0000");
+        rec.path(g, [(0.5, -0.5), (0.5, 0.5), (1.5, 0.5)], "edge");
+        rec.line(g, (1.5, 0.5), (0.5, 0.5), "edge");
+        rec.line(g, [0, 0], [2, 2], "diagonal");
+        rec.note(g, (0.5, 0.5), "corner");
+        rec.frame("draw");
+        rec.erase_line(g, (0.5, 0.5), (0.5, -0.5));
+        rec.erase_line(g, (2, 0), (2, 1));
+        rec.line(g, (2, 2), (0, 0), "edge");
+        rec.clear_lines(g, "diagonal");
+        rec.clear_lines(g, "unused");
+        rec.note(g, (0.5, 0.5), "corner");
+        rec.frame("edit");
+        rec.clear_all_lines(g);
+        rec.clear_notes(g);
+        rec.clear_notes(g);
+        rec.frame("clear");
+        let anim = rec.finish();
+
+        assert_eq!(anim.panels[0].lines[0].color, Color::rgb(0xff, 0, 0));
+        assert_eq!(anim.panels[0].lines.len(), 2);
+        assert_eq!(
+            anim.frames[0].ops[0],
+            Op::Line {
+                panel: 0,
+                style: Some(0),
+                lines: vec![[[0.5, -0.5], [0.5, 0.5]], [[0.5, 0.5], [1.5, 0.5]]],
+            }
+        );
+        assert_eq!(anim.frames[0].ops.len(), 3);
+        assert_eq!(anim.frames[1].ops.len(), 2);
+        assert_eq!(anim.frames[2].ops.len(), 2);
+        assert_eq!(anim.validate(), Ok(()));
+
+        let mut tl = Timeline::new(anim);
+        let PanelState::Grid(grid) = &tl.seek(0).panels[0] else {
+            panic!()
+        };
+        assert_eq!(grid.lines().count(), 3);
+        assert_eq!(grid.line([2.0, 2.0], [0.0, 0.0]).map(|l| l.style), Some(1));
+        assert_eq!(grid.note([0.5, 0.5]), Some("corner"));
+        let PanelState::Grid(grid) = &tl.seek(1).panels[0] else {
+            panic!()
+        };
+        assert_eq!(grid.lines().count(), 2);
+        assert!(grid.lines().all(|l| l.style == 0));
+        assert_eq!(
+            grid.line([2.0, 2.0], [0.0, 0.0]).map(|l| l.from),
+            Some([2.0, 2.0])
+        );
+        assert!(grid.line([0.5, 0.5], [0.5, -0.5]).is_none());
+        let PanelState::Grid(grid) = &tl.seek(2).panels[0] else {
+            panic!()
+        };
+        assert_eq!(grid.lines().count() + grid.notes().count(), 0);
+    }
+
+    #[test]
+    #[should_panic(expected = "point (3, 0) is off the 3x3 grid")]
+    fn point_off_grid_panics() {
+        let mut rec = Recorder::new("t");
+        let g = rec.grid("g", 3, 3);
+        rec.line(g, (-0.5, -0.5), (2.5, 2.5), "border");
+        rec.note(g, (3, 0), "x");
     }
 
     #[test]
