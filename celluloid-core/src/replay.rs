@@ -1,4 +1,4 @@
-use crate::{Animation, At, Camera, Op, Panel, PanelKind};
+use crate::{Animation, At, Camera, Op, Panel, PanelKind, Point};
 use std::collections::BTreeMap;
 
 /// Everything visible at one frame.
@@ -168,6 +168,37 @@ pub struct GridState {
     pub markers: Vec<Option<[u32; 2]>>,
     /// `None` shows the whole grid.
     pub camera: Option<Camera>,
+    lines: BTreeMap<[u32; 4], Line>,
+    notes: BTreeMap<[u32; 2], Note>,
+}
+
+/// A straight line drawn on a grid.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Line {
+    /// The ends, in the order they were last drawn.
+    pub from: Point,
+    pub to: Point,
+    /// Index into `Panel::lines`.
+    pub style: u16,
+}
+
+/// Text placed at a point on a grid.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Note {
+    pub at: Point,
+    pub text: String,
+}
+
+/// Points that are equal compare equal, `-0.0` included.
+fn point_key([x, y]: Point) -> [u32; 2] {
+    [(x + 0.0).to_bits(), (y + 0.0).to_bits()]
+}
+
+/// The same key whichever end comes first.
+fn line_key(a: Point, b: Point) -> [u32; 4] {
+    let (a, b) = (point_key(a), point_key(b));
+    let ([a0, a1], [b0, b1]) = if a <= b { (a, b) } else { (b, a) };
+    [a0, a1, b0, b1]
 }
 
 impl GridState {
@@ -178,6 +209,70 @@ impl GridState {
 
     pub(crate) fn index(&self, [x, y]: [u32; 2]) -> Option<usize> {
         (x < self.width && y < self.height).then(|| (y * self.width + x) as usize)
+    }
+
+    /// Every line, in no particular order.
+    pub fn lines(&self) -> impl Iterator<Item = &Line> {
+        self.lines.values()
+    }
+
+    /// The line between two points, drawn either way round.
+    pub fn line(&self, a: Point, b: Point) -> Option<&Line> {
+        self.lines.get(&line_key(a, b))
+    }
+
+    /// Every note, in no particular order.
+    pub fn notes(&self) -> impl Iterator<Item = &Note> {
+        self.notes.values()
+    }
+
+    /// The text of the note at a point.
+    pub fn note(&self, at: Point) -> Option<&str> {
+        self.notes.get(&point_key(at)).map(|n| n.text.as_str())
+    }
+
+    fn apply_overlay(&mut self, op: &Op) {
+        match op {
+            Op::Line {
+                style: Some(style),
+                lines,
+                ..
+            } => {
+                for &[from, to] in lines {
+                    let line = Line {
+                        from,
+                        to,
+                        style: *style,
+                    };
+                    self.lines.insert(line_key(from, to), line);
+                }
+            }
+            Op::Line {
+                style: None, lines, ..
+            } => {
+                for &[a, b] in lines {
+                    self.lines.remove(&line_key(a, b));
+                }
+            }
+            Op::ClearLines { style: None, .. } => self.lines.clear(),
+            Op::ClearLines {
+                style: Some(style), ..
+            } => self.lines.retain(|_, l| l.style != *style),
+            Op::Note { at, text, .. } => match text {
+                Some(text) => {
+                    let note = Note {
+                        at: *at,
+                        text: text.clone(),
+                    };
+                    self.notes.insert(point_key(*at), note);
+                }
+                None => {
+                    self.notes.remove(&point_key(*at));
+                }
+            },
+            Op::ClearNotes { .. } => self.notes.clear(),
+            _ => {}
+        }
     }
 
     fn cell(&self, at: At) -> Option<[u32; 2]> {
@@ -279,6 +374,8 @@ impl PanelState {
                 labels: BTreeMap::new(),
                 markers: vec![None; markers],
                 camera: None,
+                lines: BTreeMap::new(),
+                notes: BTreeMap::new(),
             }),
             PanelKind::Hex { .. } => PanelState::Hex(HexState {
                 markers: vec![None; markers],
@@ -319,7 +416,7 @@ impl PanelState {
     /// Number of elements, for sizing snapshots.
     fn size(&self) -> usize {
         match self {
-            PanelState::Grid(g) => g.cells.len(),
+            PanelState::Grid(g) => g.cells.len() + g.lines.len() + g.notes.len(),
             PanelState::Hex(h) => h.cells.len(),
             PanelState::Array(a) => a.items.len(),
             PanelState::Tree(t) => t.nodes.len(),
@@ -392,6 +489,13 @@ impl PanelState {
     fn apply(&mut self, op: &Op) {
         match (self, op) {
             (PanelState::Grid(g), Op::Camera { view, .. }) => g.camera = *view,
+            (
+                PanelState::Grid(g),
+                op @ (Op::Line { .. }
+                | Op::ClearLines { .. }
+                | Op::Note { .. }
+                | Op::ClearNotes { .. }),
+            ) => g.apply_overlay(op),
             (PanelState::Hex(h), Op::Camera { view, .. }) => h.camera = *view,
 
             (PanelState::Grid(g), Op::Set { state, cells, .. }) => {

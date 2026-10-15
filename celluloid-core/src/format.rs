@@ -35,6 +35,9 @@ pub struct Panel {
     pub states: Vec<StateDef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub markers: Vec<MarkerDef>,
+    /// Grids: the styles lines are drawn in.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub lines: Vec<LineDef>,
 }
 
 /// What kind of panel this is, with its size or starting contents.
@@ -128,6 +131,18 @@ pub struct MarkerDef {
     pub name: String,
     pub color: Color,
 }
+
+/// A named line style and the colour it's drawn in.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct LineDef {
+    pub name: String,
+    pub color: Color,
+}
+
+/// A point on a grid, `[x, y]` in cells. Whole numbers are cell centres,
+/// so `[0.5, 0.0]` is on the edge between cells `(0, 0)` and `(1, 0)` and
+/// `[-0.5, -0.5]` is the grid's top left corner.
+pub type Point = [f32; 2];
 
 /// One step of the animation.
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
@@ -260,6 +275,26 @@ pub enum Op {
         /// `None` goes back to showing the whole panel.
         view: Option<Camera>,
     },
+    /// Grids: draw straight lines between pairs of points, or erase them.
+    /// A line is the same whichever end comes first; drawing one that's
+    /// already there changes its style.
+    Line {
+        panel: u16,
+        /// Index into `Panel::lines`; `None` erases the lines.
+        style: Option<u16>,
+        lines: Vec<[Point; 2]>,
+    },
+    /// Grids: erase every line, or every line in one style.
+    ClearLines { panel: u16, style: Option<u16> },
+    /// Grids: show small text at a point, anywhere on the grid.
+    Note {
+        panel: u16,
+        at: Point,
+        /// `None` removes the note.
+        text: Option<String>,
+    },
+    /// Grids: remove every note.
+    ClearNotes { panel: u16 },
     /// Set a named value shown beside the animation.
     Var {
         name: String,
@@ -330,7 +365,11 @@ impl Op {
             | Op::AddEdge { panel, .. }
             | Op::RemoveEdge { panel, .. }
             | Op::EdgeSet { panel, .. }
-            | Op::EdgeLabel { panel, .. } => Some(*panel),
+            | Op::EdgeLabel { panel, .. }
+            | Op::Line { panel, .. }
+            | Op::ClearLines { panel, .. }
+            | Op::Note { panel, .. }
+            | Op::ClearNotes { panel } => Some(*panel),
             Op::Var { .. } => None,
         }
     }
@@ -425,6 +464,27 @@ impl Animation {
         let graph_only = |what: &str| match panel.kind {
             PanelKind::Graph { .. } => Ok(()),
             _ => Err(format!("{what} only applies to graphs, not {name:?}")),
+        };
+        let line_style = |s: Option<u16>| match s {
+            Some(s) if s as usize >= panel.lines.len() => {
+                Err(format!("unknown line style {s} in panel {name:?}"))
+            }
+            _ => Ok(()),
+        };
+        let grid_only = || match panel.kind {
+            PanelKind::Grid { width, height } => Ok((width, height)),
+            _ => Err(format!("lines and notes only apply to grids, not {name:?}")),
+        };
+        let point = |p: Point| {
+            let (width, height) = grid_only()?;
+            if on_grid(p, width, height) {
+                Ok(())
+            } else {
+                Err(format!(
+                    "point ({}, {}) is off the {width}x{height} grid {name:?}",
+                    p[0], p[1]
+                ))
+            }
         };
 
         match op {
@@ -526,6 +586,17 @@ impl Animation {
                 node(*a)?;
                 node(*b)
             }
+            Op::Line { style, lines, .. } => {
+                grid_only()?;
+                line_style(*style)?;
+                lines.iter().flatten().try_for_each(|&p| point(p))
+            }
+            Op::ClearLines { style, .. } => {
+                grid_only()?;
+                line_style(*style)
+            }
+            Op::Note { at, .. } => point(*at),
+            Op::ClearNotes { .. } => grid_only().map(|_| ()),
             Op::Var { .. } => Ok(()),
         }
     }
@@ -537,6 +608,12 @@ impl Animation {
             .enumerate()
             .filter_map(|(i, f)| f.bookmark.as_deref().map(|b| (i, b)))
     }
+}
+
+/// Whether `p` is on a `width` x `height` grid, edges included.
+pub(crate) fn on_grid(p: Point, width: u32, height: u32) -> bool {
+    let within = |v: f32, n: u32| v.is_finite() && v >= -0.5 && v <= n as f32 - 0.5;
+    width > 0 && height > 0 && within(p[0], width) && within(p[1], height)
 }
 
 #[cfg(test)]
@@ -552,6 +629,7 @@ mod tests {
                 color: Color::rgb(0, 0, 0),
             }],
             markers: vec![],
+            lines: vec![],
         }
     }
 
@@ -699,5 +777,58 @@ mod tests {
         ];
         let err = animation(array, bad).validate().unwrap_err();
         assert!(err.0.contains("index 0 outside array"), "{err}");
+    }
+
+    #[test]
+    fn validate_checks_lines_and_notes() {
+        let grid = PanelKind::Grid {
+            width: 2,
+            height: 2,
+        };
+        let line = |style, to| Op::Line {
+            panel: 0,
+            style,
+            lines: vec![[[-0.5, -0.5], to]],
+        };
+        let mut anim = animation(grid.clone(), vec![line(Some(0), [1.5, 1.5])]);
+        anim.panels[0].lines.push(LineDef {
+            name: "l".into(),
+            color: Color::rgb(0, 0, 0),
+        });
+        assert_eq!(anim.validate(), Ok(()));
+
+        anim.frames[0].ops = vec![line(Some(1), [0.0, 0.0])];
+        let err = anim.validate().unwrap_err();
+        assert!(err.0.contains("unknown line style 1"), "{err}");
+
+        anim.frames[0].ops = vec![line(None, [1.6, 0.0])];
+        let err = anim.validate().unwrap_err();
+        assert!(
+            err.0.contains("point (1.6, 0) is off the 2x2 grid"),
+            "{err}"
+        );
+
+        let note = Op::Note {
+            panel: 0,
+            at: [f32::NAN, 0.0],
+            text: None,
+        };
+        assert!(animation(grid, vec![note]).validate().is_err());
+
+        let hex = PanelKind::Hex {
+            orientation: Orientation::Pointy,
+        };
+        let clear = Op::ClearLines {
+            panel: 0,
+            style: None,
+        };
+        let err = animation(hex, vec![clear]).validate().unwrap_err();
+        assert!(err.0.contains("only apply to grids"), "{err}");
+
+        let json = serde_json::to_string(&line(None, [1.0, 0.5])).unwrap();
+        assert_eq!(
+            json,
+            r#"{"op":"line","panel":0,"style":null,"lines":[[[-0.5,-0.5],[1.0,0.5]]]}"#
+        );
     }
 }

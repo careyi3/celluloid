@@ -42,6 +42,14 @@ pub fn swatch(ui: &mut Ui, color: Color32) {
     ui.painter().rect_filled(rect, CornerRadius::same(2), color);
 }
 
+pub fn line_swatch(ui: &mut Ui, color: Color32) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
+    ui.painter().line_segment(
+        [rect.left_bottom(), rect.right_top()],
+        Stroke::new(2.5, color),
+    );
+}
+
 pub fn dot(ui: &mut Ui, color: Color32) {
     let (rect, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
     ui.painter().circle_filled(rect.center(), 5.0, color);

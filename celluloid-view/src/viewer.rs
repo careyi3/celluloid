@@ -70,6 +70,8 @@ struct FrameCache {
     /// Per panel, how many elements are in each state. `None` for the
     /// empty state of hex boards, which have no fixed size.
     counts: Vec<Vec<Option<usize>>>,
+    /// Per panel, how many lines are drawn in each line style.
+    line_counts: Vec<Vec<usize>>,
 }
 
 impl Viewer {
@@ -250,11 +252,29 @@ impl Viewer {
             })
             .collect();
 
+        let line_counts = animation
+            .panels
+            .iter()
+            .zip(&self.timeline.state().panels)
+            .map(|(def, state)| {
+                let mut counts = vec![0; def.lines.len()];
+                if let PanelState::Grid(g) = state {
+                    for line in g.lines() {
+                        if let Some(c) = counts.get_mut(line.style as usize) {
+                            *c += 1;
+                        }
+                    }
+                }
+                counts
+            })
+            .collect();
+
         FrameCache {
             cursor: self.timeline.cursor(),
             changed,
             changed_vars,
             counts,
+            line_counts,
         }
     }
 
@@ -603,6 +623,19 @@ impl Viewer {
                         });
                     });
                 }
+                for (l, def) in panel.lines.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        theme::line_swatch(ui, color32(def.color));
+                        ui.label(&def.name);
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.label(
+                                RichText::new(cache.line_counts[i][l].to_string())
+                                    .monospace()
+                                    .color(theme::MUTED),
+                            );
+                        });
+                    });
+                }
                 for (m, def) in panel.markers.iter().enumerate() {
                     ui.horizontal(|ui| {
                         theme::dot(ui, color32(def.color));
@@ -781,6 +814,10 @@ fn note_change(changed: &mut Changed, op: &Op) {
             set.insert(At::Index(*c));
         }
         Op::Label { .. }
+        | Op::Line { .. }
+        | Op::ClearLines { .. }
+        | Op::Note { .. }
+        | Op::ClearNotes { .. }
         | Op::Marker { .. }
         | Op::Camera { .. }
         | Op::Var { .. }

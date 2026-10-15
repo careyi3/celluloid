@@ -1,9 +1,9 @@
-use crate::canvas::{self, font_for, state_colors, Canvas, PanelFrame, PanelView};
+use crate::canvas::{self, color32, font_for, state_colors, Canvas, PanelFrame, PanelView};
 use crate::theme;
-use celluloid_core::{At, PanelState};
+use celluloid_core::{At, GridState, Panel, PanelState, Point};
 use eframe::egui::{
-    pos2, vec2, Align2, Color32, ColorImage, Rect, Shape, Stroke, StrokeKind, TextureOptions, Ui,
-    Vec2,
+    pos2, vec2, Align2, Color32, ColorImage, FontId, Pos2, Rect, Shape, Stroke, StrokeKind,
+    TextureOptions, Ui, Vec2,
 };
 
 /// Above this many visible cells, draw the grid as one texture instead of
@@ -132,6 +132,11 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
         }
     }
 
+    draw_lines(&c, f.panel, cur, prev, f.t);
+    if cell >= 14.0 {
+        draw_notes(&c, cur, prev, f.t);
+    }
+
     for (m, def) in f.panel.markers.iter().enumerate() {
         let Some(at) = cur.markers.get(m).copied().flatten() else {
             continue;
@@ -157,6 +162,103 @@ pub fn show(ui: &mut Ui, view: &mut PanelView, f: PanelFrame) {
             Stroke::new(1.5, Color32::WHITE),
             StrokeKind::Outside,
         );
-        c.tooltip(&f, At::Cell([x as i32, y as i32]), &[]);
+        let inside = |p: Point| (p[0] - x as f32).abs() <= 0.5 && (p[1] - y as f32).abs() <= 0.5;
+        let notes: Vec<String> = cur
+            .notes()
+            .filter(|n| inside(n.at))
+            .map(|n| format!("note ({}, {}): {}", n.at[0], n.at[1], n.text))
+            .collect();
+        c.tooltip(&f, At::Cell([x as i32, y as i32]), &notes);
+    }
+}
+
+/// Where a grid point is on screen. Whole numbers are cell centres.
+fn point_on(c: &Canvas, [x, y]: Point) -> Pos2 {
+    c.to_screen(pos2(x + 0.5, y + 0.5))
+}
+
+/// Draw the grid's lines over a dark casing so they read on any cell
+/// colour. While tweening, new lines fade in, erased ones fade out and
+/// restyled ones change colour, so a contour redrawn every frame
+/// cross-fades rather than flickering.
+fn draw_lines(c: &Canvas, panel: &Panel, cur: &GridState, prev: Option<&GridState>, t: f32) {
+    let colors: Vec<Color32> = panel.lines.iter().map(|l| color32(l.color)).collect();
+    let color = |s: u16| colors.get(s as usize).copied().unwrap_or(Color32::MAGENTA);
+    let width = (c.scale * 0.1).clamp(1.5, 5.0);
+    let casing = width + (c.scale * 0.04).clamp(1.0, 2.0) * 2.0;
+    let caps = width > 2.5;
+    let bounds = c.rect.expand(casing);
+    let mut under = Vec::new();
+    let mut over = Vec::new();
+    let mut add = |from: Point, to: Point, color: Color32, alpha: f32| {
+        let (a, b) = (point_on(c, from), point_on(c, to));
+        if !bounds.intersects(Rect::from_two_pos(a, b)) {
+            return;
+        }
+        let dark = theme::CANVAS.gamma_multiply(0.85 * alpha);
+        let color = color.gamma_multiply(alpha);
+        under.push(Shape::line_segment([a, b], Stroke::new(casing, dark)));
+        over.push(Shape::line_segment([a, b], Stroke::new(width, color)));
+        if caps {
+            for p in [a, b] {
+                under.push(Shape::circle_filled(p, casing / 2.0, dark));
+                over.push(Shape::circle_filled(p, width / 2.0, color));
+            }
+        }
+    };
+
+    for line in cur.lines() {
+        match prev.map(|p| p.line(line.from, line.to)) {
+            Some(None) => add(line.from, line.to, color(line.style), t),
+            Some(Some(old)) if old.style != line.style => {
+                let mixed = color(old.style).lerp_to_gamma(color(line.style), t);
+                add(line.from, line.to, mixed, 1.0);
+            }
+            _ => add(line.from, line.to, color(line.style), 1.0),
+        }
+    }
+    if let Some(prev) = prev {
+        for old in prev.lines() {
+            if cur.line(old.from, old.to).is_none() {
+                add(old.from, old.to, color(old.style), 1.0 - t);
+            }
+        }
+    }
+    c.painter.extend(under);
+    c.painter.extend(over);
+}
+
+/// Draw notes as small pills of text. New notes fade in and removed ones
+/// fade out while tweening.
+fn draw_notes(c: &Canvas, cur: &GridState, prev: Option<&GridState>, t: f32) {
+    let font = FontId::proportional((c.scale * 0.28).clamp(8.0, 15.0));
+    let draw = |at: Point, text: &str, alpha: f32| {
+        let pos = point_on(c, at);
+        if !c.rect.expand(c.scale).contains(pos) {
+            return;
+        }
+        let text_color = Color32::from_gray(0xf0).gamma_multiply(alpha);
+        let galley = c
+            .painter
+            .layout_no_wrap(text.to_owned(), font.clone(), text_color);
+        let pill = Rect::from_center_size(pos, galley.size() + vec2(6.0, 2.0));
+        c.painter.rect_filled(
+            pill,
+            pill.height() / 2.0,
+            theme::CANVAS.gamma_multiply(0.85 * alpha),
+        );
+        c.painter
+            .galley(pill.center() - galley.size() / 2.0, galley, text_color);
+    };
+    for note in cur.notes() {
+        let fresh = prev.is_some_and(|p| p.note(note.at).is_none());
+        draw(note.at, &note.text, if fresh { t } else { 1.0 });
+    }
+    if let Some(prev) = prev {
+        for old in prev.notes() {
+            if cur.note(old.at).is_none() {
+                draw(old.at, &old.text, 1.0 - t);
+            }
+        }
     }
 }
